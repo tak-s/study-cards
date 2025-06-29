@@ -91,6 +91,33 @@ sudo apt-get install fonts-dejavu-core fonts-noto-cjk
 sudo yum install dejavu-sans-fonts google-noto-sans-cjk-fonts
 ```
 
+## 開発用依存関係（開発者向け）
+
+コード品質チェックやセキュリティスキャンなど、開発時に必要なツールは `requirements-dev.txt` で管理されています：
+
+```bash
+# 開発用依存関係のインストール
+pip install -r requirements-dev.txt
+
+# 個別インストールの例
+pip install flake8    # コード品質チェック
+pip install pip-audit # セキュリティスキャン
+pip install pytest   # テストフレームワーク
+pip install black    # コードフォーマッター
+```
+
+**使用例:**
+```bash
+# コード品質チェック
+flake8 app.py
+
+# セキュリティスキャン
+pip-audit --requirement requirements.txt
+
+# コードフォーマット（blackインストール後）
+black app.py
+```
+
 ## 必要な環境
 
 - Python 3.10 以上

@@ -20,7 +20,39 @@
 - 使用ケース
 - 期待される動作
 
-### 2. プルリクエスト
+### 2. 開発環境のセットアップ
+
+**基本セットアップ：**
+```bash
+git clone https://github.com/tak-s/study-cards.git
+cd study-cards
+python -m venv venv
+source venv/bin/activate  # Windowsの場合: venv\Scripts\activate
+pip install -r requirements.txt
+```
+
+**開発用ツールのインストール：**
+```bash
+# コード品質チェックやセキュリティスキャン用ツール
+pip install -r requirements-dev.txt
+
+# または個別インストール
+pip install flake8 pip-audit pytest black
+```
+
+**開発時のコードチェック：**
+```bash
+# コード品質チェック
+flake8 app.py
+
+# セキュリティスキャン
+pip-audit --requirement requirements.txt
+
+# コードフォーマット（推奨）
+black app.py
+```
+
+### 3. プルリクエスト
 
 1. このリポジトリをフォーク
 2. 新しいブランチを作成 (`git checkout -b feature/新機能名`)
@@ -28,7 +60,7 @@
 4. ブランチにプッシュ (`git push origin feature/新機能名`)
 5. プルリクエストを作成
 
-### 3. コーディング規約
+### 4. コーディング規約
 
 - PEP 8 に従った Python コードを書く
 - 関数やクラスには適切なドキュメント文字列を追加

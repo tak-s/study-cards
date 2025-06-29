@@ -128,11 +128,13 @@ http://localhost:5000
 ```
 study-cards/
 ├── app.py                      # メインアプリケーション
-├── requirements.txt            # 依存関係
+├── requirements.txt            # 本番用依存関係
+├── requirements-dev.txt        # 開発用依存関係（flake8、pip-audit等）
 ├── README.md                   # このファイル
 ├── LICENSE                     # MITライセンス
 ├── SECURITY.md                 # セキュリティガイド
 ├── CONTRIBUTING.md             # 貢献ガイド
+├── SETUP.md                    # 詳細セットアップガイド
 ├── setup.sh                    # Linux/macOS用セットアップ
 ├── setup.bat                   # Windows用セットアップ
 ├── templates/                  # HTMLテンプレート
