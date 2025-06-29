@@ -1,0 +1,132 @@
+{% extends "base.html" %}
+
+{% block title %}{{ dataset_name }} 編集 - StudyCards{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="fas fa-edit"></i> {{ dataset_name }} 編集</h1>
+            <div>
+                <a href="{{ url_for('export_dataset', filename=filename) }}" class="btn btn-info me-2">
+                    <i class="fas fa-download"></i> エクスポート
+                </a>
+                <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> 戻る
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-plus"></i> アイテム追加</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('add_item', filename=filename) }}">
+                    <div class="mb-3">
+                        <label for="question" class="form-label">質問</label>
+                        <input type="text" class="form-control" id="question" name="question" 
+                               placeholder="例: 漢字「学」、英単語「school」、歴史「徳川家康」など" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="answer" class="form-label">回答</label>
+                        <input type="text" class="form-control" id="answer" name="answer" 
+                               placeholder="例: 読み「がく」、日本語「学校」、年号「1603年」など" required>
+                    </div>
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> 追加
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6><i class="fas fa-file-csv"></i> CSV直接編集</h6>
+            </div>
+            <div class="card-body">
+                <p class="small text-muted">
+                    <strong>ファイルパス:</strong> datasets/{{ filename }}<br>
+                    大量のデータを追加する場合は、CSVファイルを直接編集することも可能です。
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5><i class="fas fa-list"></i> 登録済みアイテム ({{ data|length }}件)</h5>
+                {% if data %}
+                <a href="{{ url_for('generate_quiz', filename=filename) }}" class="btn btn-success btn-sm">
+                    <i class="fas fa-file-pdf"></i> 問題作成
+                </a>
+                {% endif %}
+            </div>
+            <div class="card-body">
+                {% if data %}
+                <div class="table-responsive" style="max-height: 500px; overflow-y: auto;">
+                    <table class="table table-sm table-striped">
+                        <thead class="table-dark sticky-top">
+                            <tr>
+                                <th>質問</th>
+                                <th>回答</th>
+                                <th width="60"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in data %}
+                            <tr>
+                                <td>{{ item.質問 or item.question or '?' }}</td>
+                                <td>{{ item.回答 or item.answer or '?' }}</td>
+                                <td>
+                                    <a href="{{ url_for('delete_item', filename=filename, index=loop.index0) }}" 
+                                       class="btn btn-danger btn-sm"
+                                       onclick="return confirm('削除しますか？')">
+                                        <i class="fas fa-trash"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-4">
+                    <i class="fas fa-inbox fa-3x text-muted mb-3"></i>
+                    <p class="text-muted">まだアイテムが登録されていません</p>
+                    <p class="small text-muted">左側のフォームから最初のアイテムを追加してください</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // フォーム送信後に入力フィールドをクリア
+    const form = document.querySelector('form');
+    if (form) {
+        // URLにフラッシュメッセージがある場合（追加成功）、フォームをクリア
+        const urlParams = new URLSearchParams(window.location.search);
+        if (document.querySelector('.alert-info')) {
+            form.reset();
+            // 最初の入力フィールドにフォーカス
+            const firstInput = form.querySelector('input[type="text"]');
+            if (firstInput) {
+                firstInput.focus();
+            }
+        }
+    }
+});
+</script>
+{% endblock %}

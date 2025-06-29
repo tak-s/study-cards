@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+
+{% block title %}データセットインポート - StudyCards{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h4><i class="fas fa-upload"></i> データセットインポート</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('upload_dataset') }}" enctype="multipart/form-data">
+                    <div class="mb-4">
+                        <label for="file" class="form-label">CSVファイルを選択</label>
+                        <input type="file" class="form-control" id="file" name="file" accept=".csv" required>
+                        <div class="form-text">
+                            対応形式: CSV (.csv)
+                        </div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="force_overwrite" name="force_overwrite">
+                            <label class="form-check-label text-warning" for="force_overwrite">
+                                <i class="fas fa-exclamation-triangle"></i> 同名のデータセットが存在する場合、上書きする
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                            <i class="fas fa-arrow-left"></i> 戻る
+                        </a>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-upload"></i> インポート
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6><i class="fas fa-info-circle"></i> CSV形式について</h6>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-book text-primary"></i> 日本語データセット</h6>
+                        <pre class="bg-light p-2 rounded small">質問,回答
+学校,がっこう
+先生,せんせい
+勉強,べんきょう</pre>
+                    </div>
+                    <div class="col-md-6">
+                        <h6><i class="fas fa-globe text-success"></i> 英語データセット</h6>
+                        <pre class="bg-light p-2 rounded small">question,answer
+school,学校
+teacher,先生
+study,勉強</pre>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <h6>注意事項:</h6>
+                    <ul class="small mb-0">
+                        <li>ファイルの先頭行はヘッダー行である必要があります</li>
+                        <li>日本語: "質問,回答" 形式</li>
+                        <li>英語: "question,answer" 形式</li>
+                        <li>文字エンコーディング: Shift_JIS、UTF-8、CP932に対応（自動判定）</li>
+                        <li>保存時はShift_JISで統一されます</li>
+                        <li>同名ファイルが存在する場合はエラーになります（上書きオプションで回避可能）</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block title %}{{ dataset_name }} 問題生成 - StudyCards{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="fas fa-file-pdf"></i> {{ dataset_name }} 問題生成</h1>
+            <a href="{{ url_for('edit_dataset', filename=filename) }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> 戻る
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        {% if total_items == 0 %}
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
+                <h4 class="text-warning">データが不足しています</h4>
+                <p class="text-muted">問題を生成するためには、最低1つのアイテムが必要です。</p>
+                <a href="{{ url_for('edit_dataset', filename=filename) }}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> アイテムを追加
+                </a>
+            </div>
+        </div>
+        {% else %}
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-cog"></i> 問題設定</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('create_quiz', filename=filename) }}">
+                    <div class="mb-4">
+                        <label for="num_questions" class="form-label">問題数</label>
+                        <input type="number" class="form-control" id="num_questions" name="num_questions" 
+                               value="50" min="1" max="{{ total_items }}" required>
+                        <div class="form-text">
+                            利用可能なアイテム数: {{ total_items }}件
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label">問題タイプ</label>
+                        <div class="row">
+                            <div class="col-12 mb-2">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <input type="radio" class="form-check-input" id="question_to_answer" 
+                                               name="quiz_type" value="question_to_answer" checked>
+                                        <label class="form-check-label w-100" for="question_to_answer">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <h6 class="mb-1">質問 → 回答</h6>
+                                                    <small class="text-muted">質問を見て回答を答える問題</small>
+                                                </div>
+                                                <i class="fas fa-arrow-right text-primary"></i>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <input type="radio" class="form-check-input" id="answer_to_question" 
+                                               name="quiz_type" value="answer_to_question">
+                                        <label class="form-check-label w-100" for="answer_to_question">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <h6 class="mb-1">回答 → 質問</h6>
+                                                    <small class="text-muted">回答を見て質問を答える問題</small>
+                                                </div>
+                                                <i class="fas fa-arrow-left text-success"></i>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-success btn-lg">
+                            <i class="fas fa-download"></i> PDFを生成・ダウンロード
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6><i class="fas fa-info-circle"></i> PDF出力について</h6>
+            </div>
+            <div class="card-body">
+                <ul class="mb-0">
+                    <li><strong>A4サイズ:</strong> 印刷に適したA4サイズで出力されます</li>
+                    <li><strong>問題と解答:</strong> 問題部分の後に解答欄が含まれます</li>
+                    <li><strong>ランダム選択:</strong> 指定した問題数に応じてランダムに選ばれます</li>
+                    <li><strong>日本語対応:</strong> 漢字・ひらがな・カタカナが正しく表示されます</li>
+                </ul>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const radioButtons = document.querySelectorAll('input[name="quiz_type"]');
+    const cards = document.querySelectorAll('.card .card-body');
+    
+    radioButtons.forEach(radio => {
+        radio.addEventListener('change', function() {
+            // すべてのカードのスタイルをリセット
+            cards.forEach(card => {
+                if (card.querySelector('input[name="quiz_type"]')) {
+                    card.parentElement.style.borderColor = '';
+                    card.parentElement.style.backgroundColor = '';
+                }
+            });
+            
+            // 選択されたカードをハイライト
+            const selectedCard = this.closest('.card');
+            selectedCard.style.borderColor = '#0d6efd';
+            selectedCard.style.backgroundColor = '#f8f9ff';
+        });
+    });
+    
+    // 初期選択状態を設定
+    const checkedRadio = document.querySelector('input[name="quiz_type"]:checked');
+    if (checkedRadio) {
+        const selectedCard = checkedRadio.closest('.card');
+        selectedCard.style.borderColor = '#0d6efd';
+        selectedCard.style.backgroundColor = '#f8f9ff';
+    }
+    
+    // 問題数の自動調整
+    const numQuestionsInput = document.getElementById('num_questions');
+    const maxQuestions = parseInt('{{ total_items }}');
+    
+    numQuestionsInput.addEventListener('input', function() {
+        if (parseInt(this.value) > maxQuestions) {
+            this.value = maxQuestions;
+        }
+        if (parseInt(this.value) < 1) {
+            this.value = 1;
+        }
+    });
+});
+</script>
+{% endblock %}

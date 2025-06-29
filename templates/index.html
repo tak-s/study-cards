@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+
+{% block title %}ホーム - StudyCards{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="fas fa-book-open"></i> データセット一覧</h1>
+            <div>
+                <a href="{{ url_for('import_dataset_page') }}" class="btn btn-info me-2">
+                    <i class="fas fa-upload"></i> インポート
+                </a>
+                <a href="{{ url_for('create_dataset') }}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> 新しいデータセット
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if datasets %}
+<div class="row">
+    {% for dataset in datasets %}
+    <div class="col-md-6 col-lg-4 mb-4">
+        <div class="card dataset-card h-100">
+            <div class="card-body">
+                <h5 class="card-title">
+                    <i class="fas fa-database"></i> {{ dataset.name }}
+                </h5>
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('edit_dataset', filename=dataset.filename) }}" 
+                       class="btn btn-outline-primary">
+                        <i class="fas fa-edit"></i> 編集
+                    </a>
+                    <a href="{{ url_for('generate_quiz', filename=dataset.filename) }}" 
+                       class="btn btn-success">
+                        <i class="fas fa-file-pdf"></i> 問題作成
+                    </a>
+                    <a href="{{ url_for('export_dataset', filename=dataset.filename) }}" 
+                       class="btn btn-info btn-sm">
+                        <i class="fas fa-download"></i> エクスポート
+                    </a>
+                    <a href="{{ url_for('delete_dataset', filename=dataset.filename) }}" 
+                       class="btn btn-danger btn-sm"
+                       onclick="return confirm('本当に削除しますか？')">
+                        <i class="fas fa-trash"></i> 削除
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-database fa-3x text-muted mb-3"></i>
+                <h4 class="text-muted">データセットがありません</h4>
+                <p class="text-muted">新しいデータセットを作成して学習を始めましょう！</p>
+                <a href="{{ url_for('create_dataset') }}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> 最初のデータセットを作成
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row mt-5">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-info-circle"></i> 使い方</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3">
+                        <h6><i class="fas fa-plus-circle text-primary"></i> データセット作成</h6>
+                        <p class="small">漢字学習や英単語学習のためのデータセットを作成します。</p>
+                    </div>
+                    <div class="col-md-3">
+                        <h6><i class="fas fa-edit text-success"></i> データ編集</h6>
+                        <p class="small">作成したデータセットに単語や漢字を追加・編集できます。</p>
+                    </div>
+                    <div class="col-md-3">
+                        <h6><i class="fas fa-exchange-alt text-info"></i> インポート/エクスポート</h6>
+                        <p class="small">CSVファイルでデータセットのインポート・エクスポートが可能です。</p>
+                    </div>
+                    <div class="col-md-3">
+                        <h6><i class="fas fa-file-pdf text-danger"></i> 問題生成</h6>
+                        <p class="small">データセットから問題をランダム生成してPDFで印刷できます。</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
