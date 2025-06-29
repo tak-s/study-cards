@@ -57,12 +57,12 @@ jobs:
       run: |
         # Test if ReportLab works with Japanese fonts
         python -c "
-import sys
-sys.path.append('.')
-from app import setup_fonts
-result = setup_fonts()
-print(f'Font setup result: {result}')
-"
+        import sys
+        sys.path.append('.')
+        from app import setup_fonts
+        result = setup_fonts()
+        print('Font setup result:', result)
+        "
 
   security:
     runs-on: ubuntu-latest
