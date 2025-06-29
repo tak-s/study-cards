@@ -151,3 +151,9 @@ fonts/
 # バックアップファイル
 *.bak
 *.backup
+
+# datasets
+# サンプルファイルのみ追跡、その他のユーザー作成データセットは除外
+datasets/*.csv
+!datasets/世界の国と首都.csv
+!datasets/英単語.csv

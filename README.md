@@ -17,8 +17,8 @@
 
 ## 📸 スクリーンショット
 
-![StudyCards Screenshot1](https://raw.githubusercontent.com/tak-s/study-cards/main/screenshots/screenshot1.png)
-![StudyCards Screenshot2](https://raw.githubusercontent.com/tak-s/study-cards/main/screenshots/screenshot2.png)
+![StudyCards Screenshot1](resources/screenshot1.png)
+![StudyCards Screenshot2](resources/screenshot2.png)
 
 ## 機能
 
