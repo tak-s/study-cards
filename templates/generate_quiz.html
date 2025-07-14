@@ -123,6 +123,53 @@
                         </div>
                     </div>
                     
+                    <div class="mb-4">
+                        <label class="form-label">生成モード</label>
+                        <div class="row">
+                            <div class="col-12 mb-2">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <input type="radio" class="form-check-input" id="random_mode" 
+                                               name="generation_mode" value="random" checked>
+                                        <label class="form-check-label w-100" for="random_mode">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <h6 class="mb-1">ランダム選択</h6>
+                                                    <small class="text-muted">すべての問題から均等にランダム選択</small>
+                                                </div>
+                                                <i class="fas fa-random text-primary"></i>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <input type="radio" class="form-check-input" id="proficiency_mode" 
+                                               name="generation_mode" value="proficiency">
+                                        <label class="form-check-label w-100" for="proficiency_mode">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <h6 class="mb-1">習熟度重視</h6>
+                                                    <small class="text-muted">習熟度の低い問題を優先的に選択</small>
+                                                    {% if low_proficiency_items > 0 %}
+                                                    <br><small class="text-warning">要練習問題: {{ low_proficiency_items }}件</small>
+                                                    {% endif %}
+                                                </div>
+                                                <i class="fas fa-chart-line text-warning"></i>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="form-text">
+                            平均習熟度: {{ "%.1f" | format(avg_proficiency * 100) }}% 
+                            （優秀: {{ total_items - low_proficiency_items }}件、要練習: {{ low_proficiency_items }}件）
+                        </div>
+                    </div>
+                    
                     <div class="d-grid">
                         <button type="submit" class="btn btn-success btn-lg">
                             <i class="fas fa-download"></i> PDFを生成・ダウンロード
@@ -153,14 +200,14 @@
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const radioButtons = document.querySelectorAll('input[name="quiz_type"], input[name="output_type"]');
+    const radioButtons = document.querySelectorAll('input[name="quiz_type"], input[name="output_type"], input[name="generation_mode"]');
     const cards = document.querySelectorAll('.card .card-body');
     
     radioButtons.forEach(radio => {
         radio.addEventListener('change', function() {
             // すべてのカードのスタイルをリセット
             cards.forEach(card => {
-                if (card.querySelector('input[name="quiz_type"]') || card.querySelector('input[name="output_type"]')) {
+                if (card.querySelector('input[name="quiz_type"]') || card.querySelector('input[name="output_type"]') || card.querySelector('input[name="generation_mode"]')) {
                     card.parentElement.style.borderColor = '';
                     card.parentElement.style.backgroundColor = '';
                 }
@@ -174,7 +221,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // 初期選択状態を設定
-    const checkedRadios = document.querySelectorAll('input[name="quiz_type"]:checked, input[name="output_type"]:checked');
+    const checkedRadios = document.querySelectorAll('input[name="quiz_type"]:checked, input[name="output_type"]:checked, input[name="generation_mode"]:checked');
     checkedRadios.forEach(radio => {
         const selectedCard = radio.closest('.card');
         selectedCard.style.borderColor = '#0d6efd';

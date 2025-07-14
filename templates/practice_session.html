@@ -1,0 +1,302 @@
+{% extends "base.html" %}
+
+{% block title %}{{ dataset_name }} 練習セッション - StudyCards{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="fas fa-dumbbell"></i> {{ dataset_name }} 練習セッション</h1>
+            <a href="{{ url_for('edit_dataset', filename=filename) }}" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> 戻る
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- 進捗表示 -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 class="mb-0">進捗状況</h6>
+                    <span id="progress-text" class="text-muted">0 / {{ questions|length }}</span>
+                </div>
+                <div class="progress">
+                    <div id="progress-bar" class="progress-bar bg-primary" role="progressbar" style="width: 0%"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 問題カード -->
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div id="question-card" class="card">
+            <div class="card-header">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 id="question-number" class="mb-0">問題 1</h5>
+                    <div>
+                        <span class="badge bg-info" id="quiz-type-badge">
+                            {% if quiz_type == 'answer_to_question' %}回答→質問{% else %}質問→回答{% endif %}
+                        </span>
+                        {% if mode == 'proficiency' %}
+                        <span class="badge bg-warning">習熟度重視</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            <div class="card-body text-center py-5">
+                <div id="question-display">
+                    <h3 id="question-text" class="mb-4"></h3>
+                    <div id="answer-section" style="display: none;">
+                        <hr class="my-4">
+                        <h4 class="text-success mb-3">正解:</h4>
+                        <h3 id="answer-text" class="text-success"></h3>
+                        <div class="mt-4">
+                            <button id="correct-btn" class="btn btn-success btn-lg me-3">
+                                <i class="fas fa-check"></i> 正解
+                            </button>
+                            <button id="incorrect-btn" class="btn btn-danger btn-lg">
+                                <i class="fas fa-times"></i> 不正解
+                            </button>
+                        </div>
+                    </div>
+                    <div id="thinking-section">
+                        <button id="show-answer-btn" class="btn btn-primary btn-lg">
+                            <i class="fas fa-eye"></i> 答えを見る
+                        </button>
+                    </div>
+                </div>
+                
+                <!-- 結果表示 -->
+                <div id="result-section" style="display: none;">
+                    <div class="text-center">
+                        <h2 class="mb-3">練習完了！</h2>
+                        <div class="row text-center mb-4">
+                            <div class="col-md-4">
+                                <div class="card border-success">
+                                    <div class="card-body">
+                                        <h3 id="correct-count" class="text-success mb-0">0</h3>
+                                        <small class="text-muted">正解</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card border-danger">
+                                    <div class="card-body">
+                                        <h3 id="incorrect-count" class="text-danger mb-0">0</h3>
+                                        <small class="text-muted">不正解</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="card border-primary">
+                                    <div class="card-body">
+                                        <h3 id="accuracy-rate" class="text-primary mb-0">0%</h3>
+                                        <small class="text-muted">正解率</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-4">
+                            <a href="{{ url_for('practice_session', filename=filename, num_questions=questions|length, quiz_type=quiz_type, mode=mode) }}" class="btn btn-primary btn-lg me-3">
+                                <i class="fas fa-redo"></i> もう一度練習
+                            </a>
+                            <a href="{{ url_for('edit_dataset', filename=filename) }}" class="btn btn-secondary btn-lg">
+                                <i class="fas fa-arrow-left"></i> データセットに戻る
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 習熟度情報表示 -->
+<div class="row justify-content-center mt-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h6><i class="fas fa-chart-line"></i> 現在の習熟度</h6>
+            </div>
+            <div class="card-body">
+                <div id="proficiency-info" class="text-center">
+                    <span class="text-muted">問題を解くと習熟度が更新されます</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const questions = {{ questions | tojsonfilter }};
+    let currentQuestionIndex = 0;
+    let sessionStats = {
+        correct: 0,
+        incorrect: 0
+    };
+    
+    const questionNumberEl = document.getElementById('question-number');
+    const questionTextEl = document.getElementById('question-text');
+    const answerTextEl = document.getElementById('answer-text');
+    const answerSection = document.getElementById('answer-section');
+    const thinkingSection = document.getElementById('thinking-section');
+    const showAnswerBtn = document.getElementById('show-answer-btn');
+    const correctBtn = document.getElementById('correct-btn');
+    const incorrectBtn = document.getElementById('incorrect-btn');
+    const progressBar = document.getElementById('progress-bar');
+    const progressText = document.getElementById('progress-text');
+    const resultSection = document.getElementById('result-section');
+    const questionDisplay = document.getElementById('question-display');
+    const proficiencyInfo = document.getElementById('proficiency-info');
+    
+    function displayQuestion() {
+        if (currentQuestionIndex >= questions.length) {
+            showResults();
+            return;
+        }
+        
+        const question = questions[currentQuestionIndex];
+        
+        // 問題番号更新
+        questionNumberEl.textContent = `問題 ${currentQuestionIndex + 1}`;
+        
+        // 問題表示の決定
+        let displayText, answerText;
+        if (question.quiz_type === 'answer_to_question') {
+            displayText = question.answer;
+            answerText = question.question;
+        } else {
+            displayText = question.question;
+            answerText = question.answer;
+        }
+        
+        questionTextEl.textContent = displayText;
+        answerTextEl.textContent = answerText;
+        
+        // セクションの表示状態をリセット
+        answerSection.style.display = 'none';
+        thinkingSection.style.display = 'block';
+        
+        // 進捗更新
+        updateProgress();
+        
+        // 習熟度情報更新
+        updateProficiencyInfo(question);
+    }
+    
+    function updateProgress() {
+        const progress = (currentQuestionIndex / questions.length) * 100;
+        progressBar.style.width = progress + '%';
+        progressText.textContent = `${currentQuestionIndex} / ${questions.length}`;
+    }
+    
+    function updateProficiencyInfo(question) {
+        const proficiency = question.proficiency;
+        let proficiencyText = '';
+        let badgeClass = '';
+        
+        if (proficiency >= 0.8) {
+            proficiencyText = '優秀';
+            badgeClass = 'bg-success';
+        } else if (proficiency >= 0.6) {
+            proficiencyText = '良好';
+            badgeClass = 'bg-info';
+        } else if (proficiency >= 0.4) {
+            proficiencyText = '普通';
+            badgeClass = 'bg-warning';
+        } else if (proficiency >= 0.2) {
+            proficiencyText = '要練習';
+            badgeClass = 'bg-orange';
+        } else {
+            proficiencyText = '未習得';
+            badgeClass = 'bg-danger';
+        }
+        
+        proficiencyInfo.innerHTML = `
+            <span class="badge ${badgeClass} me-2">${proficiencyText}</span>
+            <span class="text-muted">習熟度: ${(proficiency * 100).toFixed(1)}%</span>
+        `;
+    }
+    
+    function recordAnswer(isCorrect) {
+        const question = questions[currentQuestionIndex];
+        
+        // サーバーに回答結果を送信
+        const formData = new FormData();
+        formData.append('original_index', question.original_index);
+        formData.append('is_correct', isCorrect);
+        
+        fetch(`{{ url_for('record_answer', filename=filename) }}`, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                // 習熟度を更新
+                question.proficiency = data.proficiency;
+                updateProficiencyInfo(question);
+            }
+        })
+        .catch(error => {
+            console.error('Error recording answer:', error);
+        });
+        
+        // セッション統計更新
+        if (isCorrect) {
+            sessionStats.correct++;
+        } else {
+            sessionStats.incorrect++;
+        }
+        
+        // 次の問題へ
+        setTimeout(() => {
+            currentQuestionIndex++;
+            displayQuestion();
+        }, 1000);
+    }
+    
+    function showResults() {
+        questionDisplay.style.display = 'none';
+        resultSection.style.display = 'block';
+        
+        // 最終進捗更新
+        progressBar.style.width = '100%';
+        progressText.textContent = `${questions.length} / ${questions.length}`;
+        
+        // 結果表示
+        document.getElementById('correct-count').textContent = sessionStats.correct;
+        document.getElementById('incorrect-count').textContent = sessionStats.incorrect;
+        
+        const total = sessionStats.correct + sessionStats.incorrect;
+        const accuracy = total > 0 ? Math.round((sessionStats.correct / total) * 100) : 0;
+        document.getElementById('accuracy-rate').textContent = accuracy + '%';
+    }
+    
+    // イベントリスナー
+    showAnswerBtn.addEventListener('click', function() {
+        thinkingSection.style.display = 'none';
+        answerSection.style.display = 'block';
+    });
+    
+    correctBtn.addEventListener('click', function() {
+        recordAnswer(true);
+    });
+    
+    incorrectBtn.addEventListener('click', function() {
+        recordAnswer(false);
+    });
+    
+    // 初期化
+    displayQuestion();
+});
+</script>
+{% endblock %}

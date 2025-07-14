@@ -134,8 +134,38 @@ def get_datasets():
             })
     return datasets
 
+def calculate_proficiency(correct_count, incorrect_count):
+    """習熟度を計算（0.0-1.0の範囲）"""
+    total = correct_count + incorrect_count
+    if total == 0:
+        return 0.0  # まだ練習していない
+    
+    # 正解率ベースの習熟度計算
+    accuracy = correct_count / total
+    
+    # 最低試行回数による重み付け（最低3回以上の試行で信頼度向上）
+    confidence_weight = min(total / 3.0, 1.0)
+    
+    # 習熟度 = 正解率 × 信頼度重み
+    proficiency = accuracy * confidence_weight
+    
+    return round(proficiency, 3)
+
+def get_proficiency_level_text(proficiency):
+    """習熟度の数値をテキスト表示用に変換"""
+    if proficiency >= 0.8:
+        return "優秀"
+    elif proficiency >= 0.6:
+        return "良好"
+    elif proficiency >= 0.4:
+        return "普通"
+    elif proficiency >= 0.2:
+        return "要練習"
+    else:
+        return "未習得"
+
 def load_dataset(filename):
-    """CSVファイルからデータセットを読み込み"""
+    """CSVファイルからデータセットを読み込み（習熟度対応）"""
     filepath = os.path.join(DATASETS_DIR, filename)
     data = []
     if os.path.exists(filepath):
@@ -144,6 +174,32 @@ def load_dataset(filename):
             with open(filepath, 'r', encoding='shift_jis') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
+                    # 新フォーマット（習熟度付き）と旧フォーマットの両方に対応
+                    if '正解数' not in row:
+                        row['正解数'] = 0
+                    if '不正解数' not in row:
+                        row['不正解数'] = 0
+                    if '習熟度' not in row:
+                        row['習熟度'] = calculate_proficiency(int(row.get('正解数', 0)), int(row.get('不正解数', 0)))
+                    else:
+                        # 習熟度フィールドがある場合も、正解数・不正解数から再計算
+                        try:
+                            correct = int(row.get('正解数', 0))
+                            incorrect = int(row.get('不正解数', 0))
+                            row['習熟度'] = calculate_proficiency(correct, incorrect)
+                        except (ValueError, TypeError):
+                            row['習熟度'] = 0.0
+                    
+                    # 数値型に変換
+                    try:
+                        row['正解数'] = int(row.get('正解数', 0))
+                        row['不正解数'] = int(row.get('不正解数', 0))
+                        row['習熟度'] = float(row.get('習熟度', 0.0))
+                    except (ValueError, TypeError):
+                        row['正解数'] = 0
+                        row['不正解数'] = 0
+                        row['習熟度'] = 0.0
+                    
                     data.append(row)
         except UnicodeDecodeError:
             # Shift_JISで読めない場合はUTF-8で試行
@@ -151,6 +207,32 @@ def load_dataset(filename):
                 with open(filepath, 'r', encoding='utf-8') as f:
                     reader = csv.DictReader(f)
                     for row in reader:
+                        # 新フォーマット（習熟度付き）と旧フォーマットの両方に対応
+                        if '正解数' not in row:
+                            row['正解数'] = 0
+                        if '不正解数' not in row:
+                            row['不正解数'] = 0
+                        if '習熟度' not in row:
+                            row['習熟度'] = calculate_proficiency(int(row.get('正解数', 0)), int(row.get('不正解数', 0)))
+                        else:
+                            # 習熟度フィールドがある場合も、正解数・不正解数から再計算
+                            try:
+                                correct = int(row.get('正解数', 0))
+                                incorrect = int(row.get('不正解数', 0))
+                                row['習熟度'] = calculate_proficiency(correct, incorrect)
+                            except (ValueError, TypeError):
+                                row['習熟度'] = 0.0
+                        
+                        # 数値型に変換
+                        try:
+                            row['正解数'] = int(row.get('正解数', 0))
+                            row['不正解数'] = int(row.get('不正解数', 0))
+                            row['習熟度'] = float(row.get('習熟度', 0.0))
+                        except (ValueError, TypeError):
+                            row['正解数'] = 0
+                            row['不正解数'] = 0
+                            row['習熟度'] = 0.0
+                        
                         data.append(row)
             except Exception as e:
                 print(f"Error loading dataset {filename}: {e}")
@@ -163,9 +245,18 @@ def save_dataset(filename, data, fieldnames=None):
     ensure_datasets_dir()
     filepath = os.path.join(DATASETS_DIR, filename)
     
-    # 統一フォーマット: 質問,回答
+    # 拡張フォーマット: 質問,回答,正解数,不正解数,習熟度
     if fieldnames is None:
-        fieldnames = ['質問', '回答']
+        fieldnames = ['質問', '回答', '正解数', '不正解数', '習熟度']
+    
+    # データに習熟度フィールドが含まれていない場合はデフォルト値を設定
+    for item in data:
+        if '正解数' not in item:
+            item['正解数'] = 0
+        if '不正解数' not in item:
+            item['不正解数'] = 0
+        if '習熟度' not in item:
+            item['習熟度'] = calculate_proficiency(item.get('正解数', 0), item.get('不正解数', 0))
     
     try:
         with open(filepath, 'w', encoding='shift_jis', newline='') as f:
@@ -204,8 +295,8 @@ def save_dataset_route():
     if os.path.exists(os.path.join(DATASETS_DIR, filename)):
         return redirect(url_for('create_dataset', error=f'データセット "{name}" は既に存在します。別の名前を使用してください。'))
     
-    # 統一フォーマット: 質問,回答
-    fieldnames = ['質問', '回答']
+    # 拡張フォーマット: 質問,回答,正解数,不正解数,習熟度
+    fieldnames = ['質問', '回答', '正解数', '不正解数', '習熟度']
     data = []
     
     if save_dataset(filename, data, fieldnames):
@@ -219,8 +310,8 @@ def edit_dataset(filename):
     data = load_dataset(filename)
     dataset_name = filename[:-4]  # .csvを除去
     
-    # 統一フォーマット: 質問,回答
-    fieldnames = ['質問', '回答']
+    # 拡張フォーマット: 質問,回答,正解数,不正解数,習熟度
+    fieldnames = ['質問', '回答', '正解数', '不正解数', '習熟度']
     
     message, message_type = get_message_and_type(request)
     
@@ -237,16 +328,19 @@ def add_item(filename):
     """データセットにアイテム追加"""
     data = load_dataset(filename)
     
-    # 統一フォーマット: 質問,回答
-    fieldnames = ['質問', '回答']
+    # 拡張フォーマット: 質問,回答,正解数,不正解数,習熟度
+    fieldnames = ['質問', '回答', '正解数', '不正解数', '習熟度']
     new_item = {
         '質問': request.form.get('question', ''),
-        '回答': request.form.get('answer', '')
+        '回答': request.form.get('answer', ''),
+        '正解数': 0,
+        '不正解数': 0,
+        '習熟度': 0.0
     }
     
     # 空のフィールドチェック
-    if not all(new_item.values()):
-        return redirect(url_for('edit_dataset', filename=filename, error='すべてのフィールドを入力してください。'))
+    if not new_item['質問'] or not new_item['回答']:
+        return redirect(url_for('edit_dataset', filename=filename, error='質問と回答の両方を入力してください。'))
     
     data.append(new_item)
     
@@ -261,8 +355,8 @@ def delete_item(filename, index):
     data = load_dataset(filename)
     
     if 0 <= index < len(data):
-        # 統一フォーマット: 質問,回答
-        fieldnames = ['質問', '回答']
+        # 拡張フォーマット: 質問,回答,正解数,不正解数,習熟度
+        fieldnames = ['質問', '回答', '正解数', '不正解数', '習熟度']
         
         data.pop(index)
         
@@ -280,10 +374,17 @@ def generate_quiz(filename):
     dataset_name = filename[:-4]
     message, message_type = get_message_and_type(request)
     
+    # 習熟度統計を計算
+    total_items = len(data)
+    low_proficiency_items = len([item for item in data if item.get('習熟度', 0) < 0.4])
+    avg_proficiency = sum(item.get('習熟度', 0) for item in data) / max(total_items, 1)
+    
     return render_template('generate_quiz.html',
                          dataset_name=dataset_name,
                          filename=filename,
-                         total_items=len(data),
+                         total_items=total_items,
+                         low_proficiency_items=low_proficiency_items,
+                         avg_proficiency=avg_proficiency,
                          message=message,
                          message_type=message_type)
 
@@ -297,25 +398,72 @@ def create_quiz(filename):
     
     num_questions = int(request.form.get('num_questions', 50))
     quiz_type = request.form.get('quiz_type', 'question_to_answer')
-    output_type = request.form.get('output_type', 'practice')  # 新しいパラメータ
+    output_type = request.form.get('output_type', 'practice')
+    generation_mode = request.form.get('generation_mode', 'random')  # random or proficiency
     
     # 問題数の調整（データセットのサイズまで）
     num_questions = min(num_questions, len(data))
     
-    # ランダムに問題を選択
-    selected_items = random.sample(data, num_questions)
+    # 生成モードに応じて問題を選択
+    if generation_mode == 'proficiency':
+        # 習熟度の低い問題を優先的に選択
+        # 習熟度の重み付けを行い、低い習熟度の問題が選ばれやすくする
+        weights = []
+        for item in data:
+            proficiency = item.get('習熟度', 0.0)
+            # 習熟度が低いほど選ばれやすい重み（1.0 - 習熟度 + 0.1で最低重みを確保）
+            weight = 1.0 - proficiency + 0.1
+            weights.append(weight)
+        
+        # 重み付きランダム選択
+        selected_items = []
+        data_copy = data.copy()
+        weights_copy = weights.copy()
+        
+        for _ in range(num_questions):
+            if not data_copy:
+                break
+            
+            # 重み付きでランダム選択
+            total_weight = sum(weights_copy)
+            if total_weight == 0:
+                # すべての重みが0の場合は普通のランダム選択
+                selected_item = random.choice(data_copy)
+            else:
+                random_value = random.uniform(0, total_weight)
+                cumulative_weight = 0
+                selected_index = 0
+                
+                for i, weight in enumerate(weights_copy):
+                    cumulative_weight += weight
+                    if random_value <= cumulative_weight:
+                        selected_index = i
+                        break
+                
+                selected_item = data_copy[selected_index]
+            
+            selected_items.append(selected_item)
+            
+            # 選択された項目を除外（重複を避ける）
+            item_index = data_copy.index(selected_item)
+            data_copy.pop(item_index)
+            weights_copy.pop(item_index)
+    else:
+        # ランダム選択（従来通り）
+        selected_items = random.sample(data, num_questions)
     
     # PDF生成
     pdf_buffer = create_quiz_pdf(selected_items, filename[:-4], quiz_type, output_type)
     
     # ファイル名を出力タイプに応じて変更
     output_suffix = "_answers" if output_type == "answer_sheet" else "_quiz"
+    mode_suffix = "_proficiency" if generation_mode == "proficiency" else ""
     
     # PDFをファイルとして返す
     return send_file(
         pdf_buffer,
         as_attachment=True,
-        download_name=f'{filename[:-4]}{output_suffix}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf',
+        download_name=f'{filename[:-4]}{output_suffix}{mode_suffix}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf',
         mimetype='application/pdf'
     )
 
@@ -568,8 +716,83 @@ def create_quiz_pdf(items, dataset_name, quiz_type, output_type='practice'):
     buffer.seek(0)
     return buffer
 
-@app.route('/delete_dataset/<filename>')
-def delete_dataset(filename):
+@app.route('/practice_session/<filename>')
+def practice_session(filename):
+    """練習セッションページ"""
+    data = load_dataset(filename)
+    dataset_name = filename[:-4]
+    message, message_type = get_message_and_type(request)
+    
+    if not data:
+        return redirect(url_for('edit_dataset', filename=filename, error='データセットが空です。'))
+    
+    # セッション開始時に練習する問題をランダム選択
+    num_questions = int(request.args.get('num_questions', min(10, len(data))))
+    quiz_type = request.args.get('quiz_type', 'question_to_answer')
+    mode = request.args.get('mode', 'random')  # random or proficiency
+    
+    if mode == 'proficiency':
+        # 習熟度の低い問題を優先的に選択
+        sorted_data = sorted(data, key=lambda x: x.get('習熟度', 0))
+        selected_items = sorted_data[:num_questions]
+    else:
+        # ランダム選択
+        selected_items = random.sample(data, min(num_questions, len(data)))
+    
+    # セッション用の問題リストを作成
+    session_questions = []
+    for i, item in enumerate(selected_items):
+        session_questions.append({
+            'index': i,
+            'original_index': data.index(item),  # 元データでのインデックス
+            'question': item.get('質問', ''),
+            'answer': item.get('回答', ''),
+            'quiz_type': quiz_type,
+            'proficiency': item.get('習熟度', 0.0)
+        })
+    
+    return render_template('practice_session.html',
+                         dataset_name=dataset_name,
+                         filename=filename,
+                         questions=session_questions,
+                         quiz_type=quiz_type,
+                         mode=mode,
+                         message=message,
+                         message_type=message_type)
+
+@app.route('/record_answer/<filename>', methods=['POST'])
+def record_answer(filename):
+    """回答結果を記録"""
+    from flask import jsonify
+    data = load_dataset(filename)
+    
+    try:
+        original_index = int(request.form.get('original_index'))
+        is_correct = request.form.get('is_correct') == 'true'
+        
+        if 0 <= original_index < len(data):
+            # 正解数・不正解数を更新
+            if is_correct:
+                data[original_index]['正解数'] = int(data[original_index].get('正解数', 0)) + 1
+            else:
+                data[original_index]['不正解数'] = int(data[original_index].get('不正解数', 0)) + 1
+            
+            # 習熟度を再計算
+            correct_count = int(data[original_index].get('正解数', 0))
+            incorrect_count = int(data[original_index].get('不正解数', 0))
+            data[original_index]['習熟度'] = calculate_proficiency(correct_count, incorrect_count)
+            
+            # データセットを保存
+            fieldnames = ['質問', '回答', '正解数', '不正解数', '習熟度']
+            save_dataset(filename, data, fieldnames)
+            
+            return jsonify({'status': 'success', 'proficiency': data[original_index]['習熟度']})
+        else:
+            return jsonify({'status': 'error', 'message': 'Invalid index'})
+    
+    except Exception as e:
+        print(f"Error recording answer: {e}")
+        return jsonify({'status': 'error', 'message': str(e)})
     """データセット削除"""
     filepath = os.path.join(DATASETS_DIR, filename)
     try:
@@ -583,15 +806,15 @@ def delete_dataset(filename):
 
 @app.route('/export_dataset/<filename>')
 def export_dataset(filename):
-    """データセットをCSVでエクスポート（統一フォーマット：質問,回答）"""
+    """データセットをCSVでエクスポート（習熟度対応）"""
     filepath = os.path.join(DATASETS_DIR, filename)
     if os.path.exists(filepath):
         try:
             # 現在のファイルを読み込み
             data = load_dataset(filename)
             
-            # 統一フォーマット: 質問,回答
-            fieldnames = ['質問', '回答']
+            # 拡張フォーマット: 質問,回答,正解数,不正解数,習熟度
+            fieldnames = ['質問', '回答', '正解数', '不正解数', '習熟度']
             
             if data:
                 # メモリ内でCSVを作成
@@ -646,7 +869,7 @@ def import_dataset_page():
 
 @app.route('/upload_dataset', methods=['POST'])
 def upload_dataset():
-    """データセットファイルのアップロード処理（統一フォーマット：質問,回答）"""
+    """データセットファイルのアップロード処理（習熟度対応）"""
     if 'file' not in request.files:
         return redirect(url_for('import_dataset_page', error='ファイルが選択されていません。'))
     
@@ -683,12 +906,12 @@ def upload_dataset():
         
         header = lines[0].lower().strip()  # 小文字に変換して前後の空白を削除
         
-        # 統一フォーマットのチェック
-        if ('質問' in header and '回答' in header) or ('question' in header and 'answer' in header):
-            # 統一フォーマット（日本語版または英語版）
-            pass
-        else:
-            return redirect(url_for('import_dataset_page', error='無効なCSV形式です。ヘッダーは "質問,回答" または "question,answer" である必要があります。'))
+        # 拡張フォーマット（習熟度付き）と統一フォーマットの両方をチェック
+        has_proficiency = '正解数' in header and '不正解数' in header and '習熟度' in header
+        is_basic_format = ('質問' in header and '回答' in header) or ('question' in header and 'answer' in header)
+        
+        if not (has_proficiency or is_basic_format):
+            return redirect(url_for('import_dataset_page', error='無効なCSV形式です。ヘッダーは "質問,回答" または "質問,回答,正解数,不正解数,習熟度" である必要があります。'))
         
         # ファイル名の重複チェック
         base_name = file.filename[:-4]  # .csvを除去
@@ -698,13 +921,34 @@ def upload_dataset():
         if os.path.exists(os.path.join(DATASETS_DIR, filename)) and not force_overwrite:
             return redirect(url_for('import_dataset_page', error=f'データセット "{base_name}" は既に存在します。上書きする場合はチェックボックスを選択してください。'))
         
-        # ファイルを保存（Shift_JISで統一）
+        # ファイルを保存
         ensure_datasets_dir()
         filepath = os.path.join(DATASETS_DIR, filename)
         
-        # コンテンツをShift_JISで保存
-        with open(filepath, 'w', encoding='shift_jis', newline='') as f:
-            f.write(content)
+        # 基本フォーマットの場合は習熟度フィールドを追加して拡張フォーマットに変換
+        if not has_proficiency and is_basic_format:
+            # CSVデータを読み込んで拡張フォーマットに変換
+            import io
+            csv_reader = csv.DictReader(io.StringIO(content))
+            extended_data = []
+            
+            for row in csv_reader:
+                extended_row = {
+                    '質問': row.get('質問', row.get('question', '')),
+                    '回答': row.get('回答', row.get('answer', '')),
+                    '正解数': 0,
+                    '不正解数': 0,
+                    '習熟度': 0.0
+                }
+                extended_data.append(extended_row)
+            
+            # 拡張フォーマットで保存
+            fieldnames = ['質問', '回答', '正解数', '不正解数', '習熟度']
+            save_dataset(filename, extended_data, fieldnames)
+        else:
+            # 既に拡張フォーマットの場合はそのまま保存
+            with open(filepath, 'w', encoding='shift_jis', newline='') as f:
+                f.write(content)
         
         # データ数をカウント
         data = load_dataset(filename)
@@ -712,6 +956,7 @@ def upload_dataset():
         return redirect(url_for('edit_dataset', filename=filename, msg=f'データセット "{filename[:-4]}" をインポートしました。({len(data)}件)'))
         
     except Exception as e:
+        print(f"Import error: {e}")
         return redirect(url_for('import_dataset_page', error='ファイルのインポートに失敗しました。'))
 
 if __name__ == '__main__':
