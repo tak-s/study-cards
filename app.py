@@ -570,9 +570,9 @@ def create_quiz_pdf(items, dataset_name, quiz_type):
             # 2ページ目以降のタイトル
             page_num = (current_item_index // items_per_page) + 1
             if font_available:
-                page_title = f"{dataset_name} - 暗記問題 (ページ {page_num})"
+                page_title = f"{dataset_name} - 問題 (ページ {page_num})"
             else:
-                page_title = escape_japanese(f"{dataset_name} - 暗記問題 (ページ {page_num})")
+                page_title = escape_japanese(f"{dataset_name} - 問題 (ページ {page_num})")
             
             story.append(Paragraph(page_title, title_style))
             story.append(Spacer(1, 10*mm))
