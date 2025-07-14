@@ -426,14 +426,50 @@ def create_quiz(filename):
     if not data:
         return redirect(url_for('generate_quiz', filename=filename, error='データセットが空です。'))
     
-    num_questions = int(request.form.get('num_questions', 50))
-    quiz_type = request.form.get('quiz_type', 'question_to_answer')
-    
-    # 問題数の調整（データセットのサイズまで）
-    num_questions = min(num_questions, len(data))
-    
-    # ランダムに問題を選択
-    selected_items = random.sample(data, num_questions)
+    try:
+        num_questions = int(request.form.get('num_questions', 50))
+        quiz_type = request.form.get('quiz_type', 'question_to_answer')
+        selection_method = request.form.get('selection_method', 'random')
+        
+        # 範囲設定の取得
+        range_start = request.form.get('range_start')
+        range_end = request.form.get('range_end')
+        
+        # 範囲の設定（空欄の場合はデフォルト値）
+        start_index = int(range_start) - 1 if range_start else 0  # 1-based to 0-based
+        end_index = int(range_end) - 1 if range_end else len(data) - 1  # 1-based to 0-based
+        
+        # 範囲の妥当性チェック
+        if start_index < 0 or start_index >= len(data):
+            return redirect(url_for('generate_quiz', filename=filename, error='開始位置が無効です。'))
+        
+        if end_index < 0 or end_index >= len(data):
+            return redirect(url_for('generate_quiz', filename=filename, error='終了位置が無効です。'))
+        
+        if start_index > end_index:
+            return redirect(url_for('generate_quiz', filename=filename, error='開始位置は終了位置以下にしてください。'))
+        
+        # 指定範囲のデータを取得
+        range_data = data[start_index:end_index + 1]
+        
+        # 問題数の調整（範囲データのサイズまで）
+        num_questions = min(max(1, num_questions), len(range_data))
+        
+        if num_questions < 1:
+            return redirect(url_for('generate_quiz', filename=filename, error='問題数は1以上にしてください。'))
+        
+        # 問題の選択
+        if selection_method == 'sequential':
+            # 順番選択：範囲の最初から指定数を選択
+            selected_items = range_data[:num_questions]
+        else:
+            # ランダム選択：範囲からランダムに選択
+            selected_items = random.sample(range_data, num_questions)
+            
+    except ValueError as e:
+        return redirect(url_for('generate_quiz', filename=filename, error='入力値が正しくありません。'))
+    except Exception as e:
+        return redirect(url_for('generate_quiz', filename=filename, error='予期しないエラーが発生しました。'))
     
     # PDF生成
     pdf_buffer = create_quiz_pdf(selected_items, filename[:-4], quiz_type)
@@ -505,9 +541,9 @@ def create_quiz_pdf(items, dataset_name, quiz_type):
     # タイトル
     total_questions = len(items)
     if font_available:
-        title_text = f"{dataset_name} - 暗記問題 ({total_questions}問)"
+        title_text = f"{dataset_name} - 問題 ({total_questions}問)"
     else:
-        title_text = escape_japanese(f"{dataset_name} - 暗記問題 ({total_questions}問)")
+        title_text = escape_japanese(f"{dataset_name} - 問題 ({total_questions}問)")
     
     title_paragraph = Paragraph(title_text, title_style)
     story.append(title_paragraph)

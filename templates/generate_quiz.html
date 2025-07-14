@@ -35,16 +35,74 @@
         {% else %}
         <div class="card">
             <div class="card-header">
-                <h5><i class="fas fa-cog"></i> 問題設定</h5>
+                <h5><i class="fas fa-cog"></i> 出力設定</h5>
             </div>
             <div class="card-body">
-                <form method="POST" action="{{ url_for('create_quiz', filename=filename) }}">
+                <form method="POST" action="{{ url_for('create_quiz', filename=filename) }}" id="quizForm">
                     <div class="mb-4">
                         <label for="num_questions" class="form-label">問題数</label>
                         <input type="number" class="form-control" id="num_questions" name="num_questions" 
                                value="50" min="1" max="{{ total_items }}" required>
                         <div class="form-text">
                             利用可能なアイテム数: {{ total_items }}件
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label">対象範囲</label>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label for="range_start" class="form-label">開始位置</label>
+                                <input type="number" class="form-control" id="range_start" name="range_start" 
+                                       min="1" max="{{ total_items }}" placeholder="1">
+                                <div class="form-text">空欄の場合は最初から</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="range_end" class="form-label">終了位置</label>
+                                <input type="number" class="form-control" id="range_end" name="range_end" 
+                                       min="1" max="{{ total_items }}" placeholder="{{ total_items }}">
+                                <div class="form-text">空欄の場合は最後まで</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="mb-4">
+                        <label class="form-label">問題選択方法</label>
+                        <div class="row">
+                            <div class="col-12 mb-2">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <input type="radio" class="form-check-input" id="selection_random" 
+                                               name="selection_method" value="random" checked>
+                                        <label class="form-check-label w-100" for="selection_random">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <h6 class="mb-1">ランダム選択</h6>
+                                                    <small class="text-muted">指定範囲からランダムに問題を選択</small>
+                                                </div>
+                                                <i class="fas fa-random text-warning"></i>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <input type="radio" class="form-check-input" id="selection_sequential" 
+                                               name="selection_method" value="sequential">
+                                        <label class="form-check-label w-100" for="selection_sequential">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <h6 class="mb-1">順番選択</h6>
+                                                    <small class="text-muted">指定範囲から順番に問題を選択</small>
+                                                </div>
+                                                <i class="fas fa-sort-numeric-down text-info"></i>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
@@ -105,7 +163,8 @@
                 <ul class="mb-0">
                     <li><strong>A4サイズ:</strong> 印刷に適したA4サイズで出力されます</li>
                     <li><strong>問題と解答:</strong> 問題部分の後に解答欄が含まれます</li>
-                    <li><strong>ランダム選択:</strong> 指定した問題数に応じてランダムに選ばれます</li>
+                    <li><strong>範囲指定:</strong> 指定した範囲内から問題が選択されます</li>
+                    <li><strong>選択方法:</strong> ランダムまたは順番で問題を選択できます</li>
                     <li><strong>日本語対応:</strong> 漢字・ひらがな・カタカナが正しく表示されます</li>
                 </ul>
             </div>
@@ -118,17 +177,17 @@
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const radioButtons = document.querySelectorAll('input[name="quiz_type"]');
+    const radioButtons = document.querySelectorAll('input[type="radio"]');
     const cards = document.querySelectorAll('.card .card-body');
     
     radioButtons.forEach(radio => {
         radio.addEventListener('change', function() {
-            // すべてのカードのスタイルをリセット
-            cards.forEach(card => {
-                if (card.querySelector('input[name="quiz_type"]')) {
-                    card.parentElement.style.borderColor = '';
-                    card.parentElement.style.backgroundColor = '';
-                }
+            // 同じname属性のカードのスタイルをリセット
+            const sameName = document.querySelectorAll(`input[name="${this.name}"]`);
+            sameName.forEach(r => {
+                const card = r.closest('.card');
+                card.style.borderColor = '';
+                card.style.backgroundColor = '';
             });
             
             // 選択されたカードをハイライト
@@ -139,23 +198,101 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // 初期選択状態を設定
-    const checkedRadio = document.querySelector('input[name="quiz_type"]:checked');
-    if (checkedRadio) {
-        const selectedCard = checkedRadio.closest('.card');
+    const checkedRadios = document.querySelectorAll('input[type="radio"]:checked');
+    checkedRadios.forEach(radio => {
+        const selectedCard = radio.closest('.card');
         selectedCard.style.borderColor = '#0d6efd';
         selectedCard.style.backgroundColor = '#f8f9ff';
-    }
+    });
     
     // 問題数の自動調整
     const numQuestionsInput = document.getElementById('num_questions');
+    const rangeStartInput = document.getElementById('range_start');
+    const rangeEndInput = document.getElementById('range_end');
     const maxQuestions = parseInt('{{ total_items }}');
     
+    // 範囲入力の検証
+    function validateRange() {
+        const start = parseInt(rangeStartInput.value) || 1;
+        const end = parseInt(rangeEndInput.value) || maxQuestions;
+        
+        // 開始位置が終了位置より大きい場合の処理
+        if (start > end) {
+            // 警告表示（既存のform-textを赤色に変更）
+            rangeStartInput.parentElement.querySelector('.form-text').style.color = 'red';
+            rangeStartInput.parentElement.querySelector('.form-text').textContent = '開始位置は終了位置以下にしてください';
+            rangeEndInput.parentElement.querySelector('.form-text').style.color = 'red';
+            rangeEndInput.parentElement.querySelector('.form-text').textContent = '終了位置は開始位置以上にしてください';
+            
+            // 問題数を0に設定
+            numQuestionsInput.max = 0;
+            numQuestionsInput.value = 0;
+            return false;
+        } else {
+            // 正常な場合は元の表示に戻す
+            rangeStartInput.parentElement.querySelector('.form-text').style.color = '';
+            rangeStartInput.parentElement.querySelector('.form-text').textContent = '空欄の場合は最初から';
+            rangeEndInput.parentElement.querySelector('.form-text').style.color = '';
+            rangeEndInput.parentElement.querySelector('.form-text').textContent = '空欄の場合は最後まで';
+        }
+        
+        const rangeSize = Math.max(0, end - start + 1);
+        
+        // 問題数の最大値を調整
+        numQuestionsInput.max = rangeSize;
+        if (parseInt(numQuestionsInput.value) > rangeSize) {
+            numQuestionsInput.value = rangeSize;
+        }
+        
+        return true;
+    }
+    
     numQuestionsInput.addEventListener('input', function() {
-        if (parseInt(this.value) > maxQuestions) {
-            this.value = maxQuestions;
+        const maxAvailable = parseInt(this.max);
+        if (parseInt(this.value) > maxAvailable) {
+            this.value = maxAvailable;
         }
         if (parseInt(this.value) < 1) {
             this.value = 1;
+        }
+    });
+    
+    rangeStartInput.addEventListener('input', function() {
+        if (parseInt(this.value) > maxQuestions) {
+            this.value = maxQuestions;
+        }
+        if (parseInt(this.value) < 1 && this.value !== '') {
+            this.value = 1;
+        }
+        validateRange();
+    });
+    
+    rangeEndInput.addEventListener('input', function() {
+        if (parseInt(this.value) > maxQuestions) {
+            this.value = maxQuestions;
+        }
+        if (parseInt(this.value) < 1 && this.value !== '') {
+            this.value = 1;
+        }
+        validateRange();
+    });
+    
+    // 初期検証
+    validateRange();
+    
+    // フォーム送信時のバリデーション
+    document.getElementById('quizForm').addEventListener('submit', function(e) {
+        if (!validateRange()) {
+            e.preventDefault();
+            alert('開始位置と終了位置を正しく設定してください。');
+            return false;
+        }
+        
+        const numQuestions = parseInt(numQuestionsInput.value);
+        if (numQuestions < 1) {
+            e.preventDefault();
+            alert('問題数は1以上に設定してください。');
+            return false;
         }
     });
 });
