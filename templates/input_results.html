@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block title %}結果入力 - {{ dataset_name }}{% endblock %}
+
+{% block content %}
+<div class="container-fluid px-3">
+    <!-- メッセージ表示 -->
+    {% if message %}
+    <div class="alert alert-{{ 'success' if message_type == 'success' else 'danger' }} alert-dismissible fade show" role="alert">
+        {{ message }}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    </div>
+    {% endif %}
+
+    <!-- ヘッダー -->
+    <div class="row mb-3">
+        <div class="col">
+            <h2><i class="fas fa-pencil-alt"></i> テスト結果入力</h2>
+            <h5 class="text-muted">{{ dataset_name }}</h5>
+            <p class="text-muted">
+                印刷したテストの結果を入力して、習熟度データを更新してください。
+            </p>
+        </div>
+    </div>
+
+    <!-- 結果入力フォーム -->
+    <form method="POST" action="{{ url_for('save_results', filename=filename) }}">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-list-check"></i> 問題別結果入力
+                    <span class="badge bg-primary">{{ data|length }}問</span>
+                </h5>
+            </div>
+            <div class="card-body">
+                {% for i in range(data|length) %}
+                {% set item = data[i] %}
+                <div class="row mb-3 p-3 border rounded">
+                    <div class="col-md-8">
+                        <div class="mb-2">
+                            <strong>問題 {{ i + 1 }}:</strong>
+                            <span class="text-primary">{{ item['質問'] }}</span>
+                        </div>
+                        <div class="mb-2">
+                            <strong>回答:</strong>
+                            <span class="text-success">{{ item['回答'] }}</span>
+                        </div>
+                        
+                        <!-- 現在の習熟度表示 -->
+                        <div class="mb-2">
+                            <small class="text-muted">
+                                現在の習熟度: 
+                                {% set correct = item.get('正解数', 0)|int %}
+                                {% set total = item.get('総試行回数', 0)|int %}
+                                {% set score = item.get('習熟度スコア', 0.0)|float %}
+                                
+                                {% if total > 0 %}
+                                    {{ correct }}/{{ total }}回正解 
+                                    <span class="badge {% if score >= 0.8 %}bg-success{% elif score >= 0.6 %}bg-warning{% else %}bg-danger{% endif %}">
+                                        {{ (score * 100)|round|int }}%
+                                    </span>
+                                {% else %}
+                                    <span class="badge bg-secondary">未挑戦</span>
+                                {% endif %}
+                            </small>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-4">
+                        <div class="d-flex flex-column">
+                            <label class="form-label"><strong>結果を選択:</strong></label>
+                            <div class="btn-group" role="group">
+                                <input type="radio" class="btn-check" name="result_{{ i }}" id="correct_{{ i }}" value="correct">
+                                <label class="btn btn-outline-success" for="correct_{{ i }}">
+                                    <i class="fas fa-check"></i> 正解
+                                </label>
+                                
+                                <input type="radio" class="btn-check" name="result_{{ i }}" id="incorrect_{{ i }}" value="incorrect">
+                                <label class="btn btn-outline-danger" for="incorrect_{{ i }}">
+                                    <i class="fas fa-times"></i> 不正解
+                                </label>
+                                
+                                <input type="radio" class="btn-check" name="result_{{ i }}" id="skip_{{ i }}" value="" checked>
+                                <label class="btn btn-outline-secondary" for="skip_{{ i }}">
+                                    <i class="fas fa-minus"></i> 未入力
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            
+            <div class="card-footer">
+                <div class="d-flex justify-content-between">
+                    <a href="{{ url_for('index') }}" class="btn btn-secondary">
+                        <i class="fas fa-arrow-left"></i> ホームに戻る
+                    </a>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> 結果を保存
+                    </button>
+                </div>
+            </div>
+        </div>
+    </form>
+
+    <!-- PDF生成リンク -->
+    <div class="row mt-4">
+        <div class="col">
+            <div class="card">
+                <div class="card-body">
+                    <h6 class="card-title">
+                        <i class="fas fa-file-pdf"></i> テスト用PDF生成
+                    </h6>
+                    <p class="card-text">
+                        印刷用のテストPDFを生成できます。
+                    </p>
+                    <a href="{{ url_for('generate_quiz', filename=filename) }}" class="btn btn-outline-primary">
+                        <i class="fas fa-file-pdf"></i> PDF生成ページへ
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 全選択/全クリア機能
+function selectAllResults(value) {
+    const radios = document.querySelectorAll(`input[type="radio"][value="${value}"]`);
+    radios.forEach(radio => {
+        radio.checked = true;
+    });
+}
+
+// ヘッダーに便利ボタンを追加
+document.addEventListener('DOMContentLoaded', function() {
+    const cardHeader = document.querySelector('.card-header');
+    if (cardHeader) {
+        const buttonsDiv = document.createElement('div');
+        buttonsDiv.className = 'mt-2';
+        buttonsDiv.innerHTML = `
+            <small class="text-muted">一括選択:</small>
+            <button type="button" class="btn btn-sm btn-outline-success mx-1" onclick="selectAllResults('correct')">
+                <i class="fas fa-check"></i> 全て正解
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-danger mx-1" onclick="selectAllResults('incorrect')">
+                <i class="fas fa-times"></i> 全て不正解
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-secondary mx-1" onclick="selectAllResults('')">
+                <i class="fas fa-minus"></i> 全てクリア
+            </button>
+        `;
+        cardHeader.appendChild(buttonsDiv);
+    }
+});
+</script>
+{% endblock %}

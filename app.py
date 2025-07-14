@@ -358,122 +358,50 @@ def delete_item(filename, index):
     else:
         return redirect(url_for('edit_dataset', filename=filename, error='無効なアイテムです。'))
 
-@app.route('/take_quiz/<filename>')
-def take_quiz(filename):
-    """習熟度向上のためのインタラクティブクイズ"""
+@app.route('/input_results/<filename>')
+def input_results(filename):
+    """印刷したテストの結果を手動で入力"""
     data = load_dataset(filename)
     dataset_name = filename[:-4]
     message, message_type = get_message_and_type(request)
     
     if not data:
-        return redirect(url_for('generate_quiz', filename=filename, error='データセットが空です。'))
+        return redirect(url_for('index', error='データセットが空です。'))
     
-    return render_template('take_quiz.html',
+    return render_template('input_results.html',
                          dataset_name=dataset_name,
                          filename=filename,
-                         total_items=len(data),
+                         data=data,
                          message=message,
                          message_type=message_type)
 
 
-@app.route('/start_quiz/<filename>', methods=['POST'])
-def start_quiz(filename):
-    """クイズ開始・問題選択"""
+@app.route('/save_results/<filename>', methods=['POST'])
+def save_results(filename):
+    """手動入力した結果を保存して習熟度を更新"""
     data = load_dataset(filename)
     
     if not data:
-        return redirect(url_for('take_quiz', filename=filename, error='データセットが空です。'))
+        return redirect(url_for('input_results', filename=filename, error='データセットが空です。'))
     
-    num_questions = int(request.form.get('num_questions', 10))
-    quiz_type = request.form.get('quiz_type', 'question_to_answer')
-    focus_mode = request.form.get('focus_mode', 'random')
+    # 各問題の結果を処理
+    updated_count = 0
+    for i in range(len(data)):
+        result = request.form.get(f'result_{i}')
+        if result in ['correct', 'incorrect']:
+            is_correct = (result == 'correct')
+            if update_question_proficiency(filename, i, is_correct):
+                updated_count += 1
     
-    # 問題数の調整（データセットのサイズまで）
-    num_questions = min(num_questions, len(data))
-    
-    # 問題選択ロジック
-    if focus_mode == 'low_proficiency' and any(float(item.get('習熟度スコア', 0)) < 1.0 for item in data):
-        # 習熟度の低い問題を優先的に選択
-        low_proficiency_items = [item for item in data if float(item.get('習熟度スコア', 0)) < 0.8]
-        if len(low_proficiency_items) >= num_questions:
-            selected_items = random.sample(low_proficiency_items, num_questions)
-        else:
-            # 低習熟度問題が不足している場合は残りをランダムで補完
-            selected_items = low_proficiency_items[:]
-            remaining_needed = num_questions - len(low_proficiency_items)
-            other_items = [item for item in data if item not in low_proficiency_items]
-            if other_items:
-                selected_items.extend(random.sample(other_items, min(remaining_needed, len(other_items))))
+    if updated_count > 0:
+        return redirect(url_for('input_results', filename=filename, 
+                              msg=f'{updated_count}問の結果を保存し、習熟度を更新しました。'))
     else:
-        # ランダム選択
-        selected_items = random.sample(data, num_questions)
-    
-    # シンプルな実装：最初の問題に直接リダイレクト
-    if selected_items:
-        # 最初の問題を取得
-        first_item = selected_items[0]
-        original_index = data.index(first_item)
-        
-        if quiz_type == 'answer_to_question':
-            question_text = first_item.get('回答', '')
-            answer_text = first_item.get('質問', '')
-        else:
-            question_text = first_item.get('質問', '')
-            answer_text = first_item.get('回答', '')
-        
-        return render_template('simple_quiz.html',
-                             dataset_name=filename[:-4],
-                             filename=filename,
-                             question_text=question_text,
-                             answer_text=answer_text,
-                             question_index=original_index,
-                             quiz_type=quiz_type,
-                             current_question=1,
-                             total_questions=1)  # Simple single question for now
-    
-    return redirect(url_for('take_quiz', filename=filename, error='問題の生成に失敗しました。'))
+        return redirect(url_for('input_results', filename=filename, 
+                              error='結果が更新されませんでした。問題を選択してください。'))
 
 
-@app.route('/submit_answer/<filename>', methods=['POST'])
-def submit_answer(filename):
-    """回答送信・習熟度更新"""
-    question_index = int(request.form.get('question_index'))
-    user_answer = request.form.get('user_answer', '').strip()
-    correct_answer = request.form.get('correct_answer', '')
-    current_q = int(request.form.get('current_question', 1))
-    total_q = int(request.form.get('total_questions', 1))
-    
-    # 回答の正否判定（シンプルな文字列比較）
-    is_correct = user_answer.lower().strip() == correct_answer.lower().strip()
-    
-    # 習熟度データを更新
-    update_question_proficiency(filename, question_index, is_correct)
-    
-    # 結果メッセージと共にクイズ結果画面へ
-    result_msg = f'{"正解" if is_correct else "不正解"}！正解は「{correct_answer}」でした。'
-    return redirect(url_for('quiz_results', filename=filename, msg=result_msg))
 
-
-@app.route('/quiz_results/<filename>')
-def quiz_results(filename):
-    """クイズ結果表示"""
-    data = load_dataset(filename)
-    dataset_name = filename[:-4]
-    message, message_type = get_message_and_type(request)
-    
-    # 習熟度統計の計算
-    total_items = len(data)
-    mastered_items = len([item for item in data if float(item.get('習熟度スコア', 0)) >= 0.8])
-    practiced_items = len([item for item in data if int(item.get('総試行回数', 0)) > 0])
-    
-    return render_template('quiz_results.html',
-                         dataset_name=dataset_name,
-                         filename=filename,
-                         total_items=total_items,
-                         mastered_items=mastered_items,
-                         practiced_items=practiced_items,
-                         message=message,
-                         message_type=message_type)
 
 
 @app.route('/generate_quiz/<filename>')
