@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+
+{% block title %}{{ dataset_name }} クイズ結果 - StudyCards{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="fas fa-trophy"></i> {{ dataset_name }} クイズ結果</h1>
+            <div>
+                <a href="{{ url_for('take_quiz', filename=filename) }}" class="btn btn-success me-2">
+                    <i class="fas fa-redo"></i> もう一度挑戦
+                </a>
+                <a href="{{ url_for('edit_dataset', filename=filename) }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> データセットに戻る
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <!-- 完了メッセージ -->
+        <div class="card mb-4">
+            <div class="card-body text-center py-4">
+                <i class="fas fa-check-circle fa-4x text-success mb-3"></i>
+                <h3 class="text-success">クイズ完了！</h3>
+                <p class="text-muted">お疲れ様でした。習熟度データが更新されました。</p>
+            </div>
+        </div>
+        
+        <!-- 学習統計 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5><i class="fas fa-chart-bar"></i> 学習統計</h5>
+            </div>
+            <div class="card-body">
+                <div class="row text-center">
+                    <div class="col-md-4">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <i class="fas fa-list-ul fa-2x text-primary mb-2"></i>
+                                <h4 class="text-primary">{{ total_items }}</h4>
+                                <p class="mb-0">総問題数</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <i class="fas fa-brain fa-2x text-success mb-2"></i>
+                                <h4 class="text-success">{{ mastered_items }}</h4>
+                                <p class="mb-0">習熟済み<br><small class="text-muted">(80%以上)</small></p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card bg-light">
+                            <div class="card-body">
+                                <i class="fas fa-dumbbell fa-2x text-info mb-2"></i>
+                                <h4 class="text-info">{{ practiced_items }}</h4>
+                                <p class="mb-0">練習済み</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 習熟度プログレス -->
+                <div class="mt-4">
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span>全体の習熟度</span>
+                        <span>{{ ((mastered_items / total_items * 100)|round) if total_items > 0 else 0 }}%</span>
+                    </div>
+                    <div class="progress">
+                        <div class="progress-bar bg-success" 
+                             style="width: {{ ((mastered_items / total_items * 100)|round) if total_items > 0 else 0 }}%">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 次のアクション -->
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-lightbulb"></i> おすすめの次のアクション</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    {% if mastered_items < total_items %}
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h6><i class="fas fa-target text-warning"></i> 習熟度重視で再挑戦</h6>
+                                <p class="small text-muted">苦手な問題を集中的に練習して習熟度を向上させましょう。</p>
+                                <a href="{{ url_for('take_quiz', filename=filename) }}" class="btn btn-warning btn-sm">
+                                    <i class="fas fa-play"></i> 習熟度重視クイズ
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h6><i class="fas fa-eye text-primary"></i> 習熟度を確認</h6>
+                                <p class="small text-muted">データセット編集画面で各問題の習熟度を視覚的に確認できます。</p>
+                                <a href="{{ url_for('edit_dataset', filename=filename) }}" class="btn btn-primary btn-sm">
+                                    <i class="fas fa-chart-bar"></i> 習熟度表示
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    {% if practiced_items >= total_items * 0.8 %}
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h6><i class="fas fa-file-pdf text-success"></i> PDF問題で復習</h6>
+                                <p class="small text-muted">印刷用のPDF問題を作成して、紙での学習も試してみましょう。</p>
+                                <a href="{{ url_for('generate_quiz', filename=filename) }}" class="btn btn-success btn-sm">
+                                    <i class="fas fa-download"></i> PDF生成
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h6><i class="fas fa-download text-info"></i> データをエクスポート</h6>
+                                <p class="small text-muted">習熟度データを含めてCSVファイルでエクスポートできます。</p>
+                                <a href="{{ url_for('export_dataset', filename=filename) }}" class="btn btn-info btn-sm">
+                                    <i class="fas fa-file-csv"></i> CSV エクスポート
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 自動リダイレクト（オプション）
+    // 一定時間後に自動的にデータセット画面に戻る場合は以下のコメントアウトを解除
+    /*
+    setTimeout(function() {
+        window.location.href = "{{ url_for('edit_dataset', filename=filename) }}";
+    }, 10000); // 10秒後
+    */
+});
+</script>
+{% endblock %}
