@@ -83,6 +83,46 @@
                         </div>
                     </div>
                     
+                    <div class="mb-4">
+                        <label class="form-label">出力タイプ</label>
+                        <div class="row">
+                            <div class="col-12 mb-2">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <input type="radio" class="form-check-input" id="practice_mode" 
+                                               name="output_type" value="practice" checked>
+                                        <label class="form-check-label w-100" for="practice_mode">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <h6 class="mb-1">練習問題</h6>
+                                                    <small class="text-muted">解答欄が空白の練習用シート</small>
+                                                </div>
+                                                <i class="fas fa-edit text-primary"></i>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <input type="radio" class="form-check-input" id="answer_sheet" 
+                                               name="output_type" value="answer_sheet">
+                                        <label class="form-check-label w-100" for="answer_sheet">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <h6 class="mb-1">解答付きシート</h6>
+                                                    <small class="text-muted">正解が表示された答え合わせ用シート</small>
+                                                </div>
+                                                <i class="fas fa-check text-success"></i>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <div class="d-grid">
                         <button type="submit" class="btn btn-success btn-lg">
                             <i class="fas fa-download"></i> PDFを生成・ダウンロード
@@ -113,14 +153,14 @@
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const radioButtons = document.querySelectorAll('input[name="quiz_type"]');
+    const radioButtons = document.querySelectorAll('input[name="quiz_type"], input[name="output_type"]');
     const cards = document.querySelectorAll('.card .card-body');
     
     radioButtons.forEach(radio => {
         radio.addEventListener('change', function() {
             // すべてのカードのスタイルをリセット
             cards.forEach(card => {
-                if (card.querySelector('input[name="quiz_type"]')) {
+                if (card.querySelector('input[name="quiz_type"]') || card.querySelector('input[name="output_type"]')) {
                     card.parentElement.style.borderColor = '';
                     card.parentElement.style.backgroundColor = '';
                 }
@@ -134,12 +174,12 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     
     // 初期選択状態を設定
-    const checkedRadio = document.querySelector('input[name="quiz_type"]:checked');
-    if (checkedRadio) {
-        const selectedCard = checkedRadio.closest('.card');
+    const checkedRadios = document.querySelectorAll('input[name="quiz_type"]:checked, input[name="output_type"]:checked');
+    checkedRadios.forEach(radio => {
+        const selectedCard = radio.closest('.card');
         selectedCard.style.borderColor = '#0d6efd';
         selectedCard.style.backgroundColor = '#f8f9ff';
-    }
+    });
     
     // 問題数の自動調整
     const numQuestionsInput = document.getElementById('num_questions');

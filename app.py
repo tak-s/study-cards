@@ -297,6 +297,7 @@ def create_quiz(filename):
     
     num_questions = int(request.form.get('num_questions', 50))
     quiz_type = request.form.get('quiz_type', 'question_to_answer')
+    output_type = request.form.get('output_type', 'practice')  # 新しいパラメータ
     
     # 問題数の調整（データセットのサイズまで）
     num_questions = min(num_questions, len(data))
@@ -305,17 +306,20 @@ def create_quiz(filename):
     selected_items = random.sample(data, num_questions)
     
     # PDF生成
-    pdf_buffer = create_quiz_pdf(selected_items, filename[:-4], quiz_type)
+    pdf_buffer = create_quiz_pdf(selected_items, filename[:-4], quiz_type, output_type)
+    
+    # ファイル名を出力タイプに応じて変更
+    output_suffix = "_answers" if output_type == "answer_sheet" else "_quiz"
     
     # PDFをファイルとして返す
     return send_file(
         pdf_buffer,
         as_attachment=True,
-        download_name=f'{filename[:-4]}_quiz_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf',
+        download_name=f'{filename[:-4]}{output_suffix}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf',
         mimetype='application/pdf'
     )
 
-def create_quiz_pdf(items, dataset_name, quiz_type):
+def create_quiz_pdf(items, dataset_name, quiz_type, output_type='practice'):
     """問題のPDFを作成（統一フォーマット：質問,回答）"""
     buffer = io.BytesIO()
     
@@ -373,10 +377,11 @@ def create_quiz_pdf(items, dataset_name, quiz_type):
     
     # タイトル
     total_questions = len(items)
+    title_suffix = "解答付きシート" if output_type == 'answer_sheet' else "暗記問題"
     if font_available:
-        title_text = f"{dataset_name} - 暗記問題 ({total_questions}問)"
+        title_text = f"{dataset_name} - {title_suffix} ({total_questions}問)"
     else:
-        title_text = escape_japanese(f"{dataset_name} - 暗記問題 ({total_questions}問)")
+        title_text = escape_japanese(f"{dataset_name} - {title_suffix} ({total_questions}問)")
     
     title_paragraph = Paragraph(title_text, title_style)
     story.append(title_paragraph)
@@ -403,9 +408,9 @@ def create_quiz_pdf(items, dataset_name, quiz_type):
             # 2ページ目以降のタイトル
             page_num = (current_item_index // items_per_page) + 1
             if font_available:
-                page_title = f"{dataset_name} - 暗記問題 (ページ {page_num})"
+                page_title = f"{dataset_name} - {title_suffix} (ページ {page_num})"
             else:
-                page_title = escape_japanese(f"{dataset_name} - 暗記問題 (ページ {page_num})")
+                page_title = escape_japanese(f"{dataset_name} - {title_suffix} (ページ {page_num})")
             
             story.append(Paragraph(page_title, title_style))
             story.append(Spacer(1, 10*mm))
@@ -414,7 +419,8 @@ def create_quiz_pdf(items, dataset_name, quiz_type):
         table_data = []
         
         # ヘッダー行
-        table_data.append(['問題', '解答欄', '問題', '解答欄'])
+        header_answer_col = '正解' if output_type == 'answer_sheet' else '解答欄'
+        table_data.append(['問題', header_answer_col, '問題', header_answer_col])
         
         # 25行のデータを作成
         for i in range(25):
@@ -438,7 +444,25 @@ def create_quiz_pdf(items, dataset_name, quiz_type):
                         left_question = f"{current_item_index + i + 1}. {question_text}"
                     else:
                         left_question = escape_japanese(f"{current_item_index + i + 1}. {question_text}")
-                    left_answer = "________________"
+                    
+                    # 答えの表示を出力タイプに応じて変更
+                    if output_type == 'answer_sheet':
+                        # 正解を表示
+                        if quiz_type == 'answer_to_question':
+                            # 回答→質問の場合、質問が正解
+                            correct_answer = (left_item.get('質問') or 
+                                            left_item.get('question') or '')
+                        else:
+                            # 質問→回答の場合、回答が正解
+                            correct_answer = (left_item.get('回答') or 
+                                            left_item.get('answer') or '')
+                        
+                        if font_available:
+                            left_answer = correct_answer
+                        else:
+                            left_answer = escape_japanese(correct_answer)
+                    else:
+                        left_answer = "________________"
                 else:
                     left_question = ""
                     left_answer = ""
@@ -463,7 +487,25 @@ def create_quiz_pdf(items, dataset_name, quiz_type):
                         right_question = f"{current_item_index + i + 26}. {question_text}"
                     else:
                         right_question = escape_japanese(f"{current_item_index + i + 26}. {question_text}")
-                    right_answer = "________________"
+                    
+                    # 答えの表示を出力タイプに応じて変更
+                    if output_type == 'answer_sheet':
+                        # 正解を表示
+                        if quiz_type == 'answer_to_question':
+                            # 回答→質問の場合、質問が正解
+                            correct_answer = (right_item.get('質問') or 
+                                            right_item.get('question') or '')
+                        else:
+                            # 質問→回答の場合、回答が正解
+                            correct_answer = (right_item.get('回答') or 
+                                            right_item.get('answer') or '')
+                        
+                        if font_available:
+                            right_answer = correct_answer
+                        else:
+                            right_answer = escape_japanese(correct_answer)
+                    else:
+                        right_answer = "________________"
                 else:
                     right_question = ""
                     right_answer = ""
