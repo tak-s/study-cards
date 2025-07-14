@@ -77,6 +77,7 @@
                             <tr>
                                 <th>質問</th>
                                 <th>回答</th>
+                                <th>習熟度</th>
                                 <th width="60"></th>
                             </tr>
                         </thead>
@@ -85,6 +86,26 @@
                             <tr>
                                 <td>{{ item.質問 or item.question or '?' }}</td>
                                 <td>{{ item.回答 or item.answer or '?' }}</td>
+                                <td>
+                                    {% set proficiency = item.習熟度スコア|float %}
+                                    {% set attempts = item.総試行回数|int %}
+                                    {% if attempts > 0 %}
+                                        <div class="d-flex align-items-center">
+                                            <div class="progress me-2" style="width: 60px; height: 20px;">
+                                                {% if proficiency >= 0.8 %}
+                                                    <div class="progress-bar bg-success" style="width: {{ (proficiency * 100)|round }}%"></div>
+                                                {% elif proficiency >= 0.6 %}
+                                                    <div class="progress-bar bg-warning" style="width: {{ (proficiency * 100)|round }}%"></div>
+                                                {% else %}
+                                                    <div class="progress-bar bg-danger" style="width: {{ (proficiency * 100)|round }}%"></div>
+                                                {% endif %}
+                                            </div>
+                                            <small class="text-muted">{{ (proficiency * 100)|round }}% ({{ item.正解数 }}/{{ attempts }})</small>
+                                        </div>
+                                    {% else %}
+                                        <small class="text-muted">未実施</small>
+                                    {% endif %}
+                                </td>
                                 <td>
                                     <a href="{{ url_for('delete_item', filename=filename, index=loop.index0) }}" 
                                        class="btn btn-danger btn-sm"

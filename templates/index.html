@@ -33,9 +33,13 @@
                        class="btn btn-outline-primary">
                         <i class="fas fa-edit"></i> 編集
                     </a>
+                    <a href="{{ url_for('input_results', filename=dataset.filename) }}" 
+                       class="btn btn-warning">
+                        <i class="fas fa-pencil-alt"></i> 結果入力
+                    </a>
                     <a href="{{ url_for('generate_quiz', filename=dataset.filename) }}" 
                        class="btn btn-success">
-                        <i class="fas fa-file-pdf"></i> 問題作成
+                        <i class="fas fa-file-pdf"></i> PDF生成
                     </a>
                     <a href="{{ url_for('export_dataset', filename=dataset.filename) }}" 
                        class="btn btn-info btn-sm">
@@ -77,20 +81,24 @@
             </div>
             <div class="card-body">
                 <div class="row">
-                    <div class="col-md-3">
+                    <div class="col-md col-sm-6">
                         <h6><i class="fas fa-plus-circle text-primary"></i> データセット作成</h6>
                         <p class="small">漢字学習や英単語学習のためのデータセットを作成します。</p>
                     </div>
-                    <div class="col-md-3">
+                    <div class="col-md col-sm-6">
                         <h6><i class="fas fa-edit text-success"></i> データ編集</h6>
                         <p class="small">作成したデータセットに単語や漢字を追加・編集できます。</p>
                     </div>
-                    <div class="col-md-3">
-                        <h6><i class="fas fa-exchange-alt text-info"></i> インポート/エクスポート</h6>
-                        <p class="small">CSVファイルでデータセットのインポート・エクスポートが可能です。</p>
+                    <div class="col-md col-sm-6">
+                        <h6><i class="fas fa-pencil-alt text-warning"></i> テスト結果入力</h6>
+                        <p class="small">印刷したテストの結果を入力して習熟度データを管理します。</p>
                     </div>
-                    <div class="col-md-3">
-                        <h6><i class="fas fa-file-pdf text-danger"></i> 問題生成</h6>
+                    <div class="col-md col-sm-6">
+                        <h6><i class="fas fa-exchange-alt text-info"></i> インポート/エクスポート</h6>
+                        <p class="small">習熟度データを含むCSVファイルでの管理が可能です。</p>
+                    </div>
+                    <div class="col-md col-sm-6">
+                        <h6><i class="fas fa-file-pdf text-danger"></i> PDF生成</h6>
                         <p class="small">データセットから問題をランダム生成してPDFで印刷できます。</p>
                     </div>
                 </div>
