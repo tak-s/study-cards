@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, send_file
+from flask import Flask, render_template, request, redirect, url_for, send_file, jsonify
 import csv
 import os
 import random
@@ -763,7 +763,6 @@ def practice_session(filename):
 @app.route('/record_answer/<filename>', methods=['POST'])
 def record_answer(filename):
     """回答結果を記録"""
-    from flask import jsonify
     data = load_dataset(filename)
     
     try:

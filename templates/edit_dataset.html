@@ -146,7 +146,7 @@
                                     {% elif proficiency >= 0.4 %}
                                         <span class="badge bg-warning">普通 ({{ "%.1f" | format(proficiency * 100) }}%)</span>
                                     {% elif proficiency >= 0.2 %}
-                                        <span class="badge bg-orange">要練習 ({{ "%.1f" | format(proficiency * 100) }}%)</span>
+                                        <span class="badge bg-warning text-dark">要練習 ({{ "%.1f" | format(proficiency * 100) }}%)</span>
                                     {% else %}
                                         <span class="badge bg-danger">未習得 ({{ "%.1f" | format(proficiency * 100) }}%)</span>
                                     {% endif %}
