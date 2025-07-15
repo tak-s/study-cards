@@ -38,7 +38,7 @@
                 <div class="row mb-3 p-3 border rounded">
                     <div class="col-md-8">
                         <div class="mb-2">
-                            <strong>問題 {{ i + 1 }}:</strong>
+                            <strong>問題 {{ item.get('番号', i + 1) }}:</strong>
                             <span class="text-primary">{{ item['質問'] }}</span>
                         </div>
                         <div class="mb-2">
