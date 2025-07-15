@@ -65,7 +65,7 @@
                 <h5><i class="fas fa-list"></i> 登録済みアイテム ({{ data|length }}件)</h5>
                 {% if data %}
                 <a href="{{ url_for('generate_quiz', filename=filename) }}" class="btn btn-success btn-sm">
-                    <i class="fas fa-file-pdf"></i> 問題作成
+                    <i class="fas fa-file-pdf"></i> テスト作成
                 </a>
                 {% endif %}
             </div>
@@ -94,15 +94,16 @@
                                     {% if attempts > 0 %}
                                         <div class="d-flex align-items-center">
                                             <div class="progress me-2" style="width: 60px; height: 20px;">
+                                                {% set proficiency_percent = (proficiency * 100)|round %}
                                                 {% if proficiency >= 0.8 %}
-                                                    <div class="progress-bar bg-success" style="width: {{ (proficiency * 100)|round }}%"></div>
+                                                    <div class="progress-bar bg-success" role="progressbar" data-width="{{ proficiency_percent }}" aria-valuenow="{{ proficiency_percent }}" aria-valuemin="0" aria-valuemax="100"></div>
                                                 {% elif proficiency >= 0.6 %}
-                                                    <div class="progress-bar bg-warning" style="width: {{ (proficiency * 100)|round }}%"></div>
+                                                    <div class="progress-bar bg-warning" role="progressbar" data-width="{{ proficiency_percent }}" aria-valuenow="{{ proficiency_percent }}" aria-valuemin="0" aria-valuemax="100"></div>
                                                 {% else %}
-                                                    <div class="progress-bar bg-danger" style="width: {{ (proficiency * 100)|round }}%"></div>
+                                                    <div class="progress-bar bg-danger" role="progressbar" data-width="{{ proficiency_percent }}" aria-valuenow="{{ proficiency_percent }}" aria-valuemin="0" aria-valuemax="100"></div>
                                                 {% endif %}
                                             </div>
-                                            <small class="text-muted">{{ (proficiency * 100)|round }}% ({{ item.正解数 }}/{{ attempts }})</small>
+                                            <small class="text-muted">{{ proficiency_percent }}% ({{ item.正解数 }}/{{ attempts }})</small>
                                         </div>
                                     {% else %}
                                         <small class="text-muted">未実施</small>
@@ -136,6 +137,13 @@
 {% block scripts %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // プログレスバーの幅を設定
+    const progressBars = document.querySelectorAll('.progress-bar[data-width]');
+    progressBars.forEach(function(bar) {
+        const width = bar.getAttribute('data-width');
+        bar.style.width = width + '%';
+    });
+
     // フォーム送信後に入力フィールドをクリア
     const form = document.querySelector('form');
     if (form) {

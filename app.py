@@ -441,7 +441,7 @@ def save_results(filename):
 
 @app.route('/generate_quiz/<filename>')
 def generate_quiz(filename):
-    """問題生成ページ"""
+    """テスト作成ページ"""
     data = load_dataset(filename)
     dataset_name = filename[:-4]
     message, message_type = get_message_and_type(request)
@@ -455,7 +455,7 @@ def generate_quiz(filename):
 
 @app.route('/create_quiz/<filename>', methods=['POST'])
 def create_quiz(filename):
-    """問題作成・PDF生成"""
+    """テスト作成・PDF生成"""
     data = load_dataset(filename)
     
     if not data:
@@ -507,17 +507,17 @@ def create_quiz(filename):
         return redirect(url_for('generate_quiz', filename=filename, error='予期しないエラーが発生しました。'))
     
     # PDF生成
-    pdf_buffer = create_quiz_pdf(selected_items, filename[:-4], quiz_type)
+    pdf_buffer = create_test_pdf(selected_items, filename[:-4], quiz_type)
     
     # PDFをファイルとして返す
     return send_file(
         pdf_buffer,
         as_attachment=True,
-        download_name=f'{filename[:-4]}_quiz_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf',
+        download_name=f'{filename[:-4]}_test_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf',
         mimetype='application/pdf'
     )
 
-def create_quiz_pdf(items, dataset_name, quiz_type):
+def create_test_pdf(items, dataset_name, quiz_type):
     """問題のPDFを作成（統一フォーマット：質問,回答）"""
     buffer = io.BytesIO()
     
