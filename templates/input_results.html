@@ -4,14 +4,6 @@
 
 {% block content %}
 <div class="container-fluid px-3">
-    <!-- メッセージ表示 -->
-    {% if message %}
-    <div class="alert alert-{{ 'success' if message_type == 'success' else 'danger' }} alert-dismissible fade show" role="alert">
-        {{ message }}
-        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
-    </div>
-    {% endif %}
-
     <!-- ヘッダー -->
     <div class="row mb-3">
         <div class="col">
