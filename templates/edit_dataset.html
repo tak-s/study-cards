@@ -75,6 +75,7 @@
                     <table class="table table-sm table-striped">
                         <thead class="table-dark sticky-top">
                             <tr>
+                                <th>番号</th>
                                 <th>質問</th>
                                 <th>回答</th>
                                 <th>習熟度</th>
@@ -84,6 +85,7 @@
                         <tbody>
                             {% for item in data %}
                             <tr>
+                                <td><strong>{{ item.番号 or loop.index }}</strong></td>
                                 <td>{{ item.質問 or item.question or '?' }}</td>
                                 <td>{{ item.回答 or item.answer or '?' }}</td>
                                 <td>
