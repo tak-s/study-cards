@@ -172,69 +172,72 @@ def load_dataset(filename):
     filepath = os.path.join(DATASETS_DIR, filename)
     data = []
     if os.path.exists(filepath):
-        try:
-            # まずShift_JISで試行
-            with open(filepath, 'r', encoding='shift_jis') as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    # 番号がない旧形式の場合はデフォルト値を設定
-                    if '番号' not in row:
-                        row['番号'] = len(data) + 1
-                    # 習熟度データがない旧形式の場合はデフォルト値を設定
-                    if '正解数' not in row:
-                        row['正解数'] = 0
-                    if '総試行回数' not in row:
-                        row['総試行回数'] = 0
-                    if '習熟度スコア' not in row:
-                        row['習熟度スコア'] = 0.0
-                    
-                    # 数値型に変換
-                    try:
-                        row['番号'] = int(row['番号']) if row['番号'] else len(data) + 1
-                        row['正解数'] = int(row['正解数']) if row['正解数'] else 0
-                        row['総試行回数'] = int(row['総試行回数']) if row['総試行回数'] else 0
-                        row['習熟度スコア'] = float(row['習熟度スコア']) if row['習熟度スコア'] else 0.0
-                    except (ValueError, TypeError):
-                        row['番号'] = len(data) + 1
-                        row['正解数'] = 0
-                        row['総試行回数'] = 0
-                        row['習熟度スコア'] = 0.0
-                    
-                    data.append(row)
-        except UnicodeDecodeError:
-            # Shift_JISで読めない場合はUTF-8で試行
+        # エンコーディングを試行する順序
+        encodings = ['shift_jis', 'utf-8', 'cp932']
+        
+        for encoding in encodings:
             try:
-                with open(filepath, 'r', encoding='utf-8') as f:
-                    reader = csv.DictReader(f)
-                    for row in reader:
-                        # 番号がない旧形式の場合はデフォルト値を設定
-                        if '番号' not in row:
-                            row['番号'] = len(data) + 1
-                        # 習熟度データがない旧形式の場合はデフォルト値を設定
-                        if '正解数' not in row:
-                            row['正解数'] = 0
-                        if '総試行回数' not in row:
-                            row['総試行回数'] = 0
-                        if '習熟度スコア' not in row:
-                            row['習熟度スコア'] = 0.0
-                        
-                        # 数値型に変換
+                with open(filepath, 'r', encoding=encoding) as f:
+                    # ファイルの最初の行を読んでCSVかTSVかを判定
+                    first_line = f.readline()
+                    f.seek(0)  # ファイルポインタを先頭に戻す
+                    
+                    # タブかカンマで区切られているかを判定
+                    delimiter = '\t' if '\t' in first_line and ',' not in first_line else ','
+                    delimiter_name = 'TAB' if delimiter == '\t' else 'COMMA'
+                    print(f"Detected delimiter: {delimiter_name} for file {filename}")
+                    
+                    reader = csv.DictReader(f, delimiter=delimiter)
+                    
+                    for row_num, row in enumerate(reader, 1):
                         try:
-                            row['番号'] = int(row['番号']) if row['番号'] else len(data) + 1
-                            row['正解数'] = int(row['正解数']) if row['正解数'] else 0
-                            row['総試行回数'] = int(row['総試行回数']) if row['総試行回数'] else 0
-                            row['習熟度スコア'] = float(row['習熟度スコア']) if row['習熟度スコア'] else 0.0
-                        except (ValueError, TypeError):
-                            row['番号'] = len(data) + 1
-                            row['正解数'] = 0
-                            row['総試行回数'] = 0
-                            row['習熟度スコア'] = 0.0
-                        
-                        data.append(row)
+                            # フィールド名の前後の空白を除去
+                            cleaned_row = {key.strip(): value.strip() if value else '' for key, value in row.items()}
+                            
+                            # 番号がない旧形式の場合はデフォルト値を設定
+                            if '番号' not in cleaned_row:
+                                cleaned_row['番号'] = len(data) + 1
+                            
+                            # 習熟度データがない旧形式の場合はデフォルト値を設定
+                            if '正解数' not in cleaned_row:
+                                cleaned_row['正解数'] = 0
+                            if '総試行回数' not in cleaned_row:
+                                cleaned_row['総試行回数'] = 0
+                            if '習熟度スコア' not in cleaned_row:
+                                cleaned_row['習熟度スコア'] = 0.0
+                            
+                            # 数値型に変換
+                            try:
+                                cleaned_row['番号'] = int(cleaned_row['番号']) if cleaned_row['番号'] else len(data) + 1
+                                cleaned_row['正解数'] = int(cleaned_row['正解数']) if cleaned_row['正解数'] else 0
+                                cleaned_row['総試行回数'] = int(cleaned_row['総試行回数']) if cleaned_row['総試行回数'] else 0
+                                cleaned_row['習熟度スコア'] = float(cleaned_row['習熟度スコア']) if cleaned_row['習熟度スコア'] else 0.0
+                            except (ValueError, TypeError) as conv_error:
+                                print(f"Number conversion error in row {row_num}: {conv_error}")
+                                cleaned_row['番号'] = len(data) + 1
+                                cleaned_row['正解数'] = 0
+                                cleaned_row['総試行回数'] = 0
+                                cleaned_row['習熟度スコア'] = 0.0
+                            
+                            data.append(cleaned_row)
+                            
+                        except Exception as row_error:
+                            print(f"Error processing row {row_num}: {row_error}")
+                            continue
+                    
+                    print(f"Successfully loaded {len(data)} rows from {filename} with {encoding} encoding")
+                    break  # 成功したらループを抜ける
+                    
+            except UnicodeDecodeError as decode_error:
+                print(f"Failed to decode {filename} with {encoding}: {decode_error}")
+                continue
             except Exception as e:
-                print(f"Error loading dataset {filename}: {e}")
-        except Exception as e:
-            print(f"Error loading dataset {filename}: {e}")
+                print(f"Error loading dataset {filename} with {encoding}: {e}")
+                continue
+        
+        if not data:
+            print(f"Failed to load any data from {filename}")
+    
     return data
 
 def save_dataset(filename, data, fieldnames=None):
@@ -263,10 +266,21 @@ def save_dataset(filename, data, fieldnames=None):
         enhanced_data.append(enhanced_item)
     
     try:
-        with open(filepath, 'w', encoding='shift_jis', newline='') as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(enhanced_data)
+        # Shift_JISでの保存を試行（エラー時はUTF-8で保存）
+        try:
+            with open(filepath, 'w', encoding='shift_jis', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(enhanced_data)
+            print(f"Dataset saved successfully with shift_jis encoding: {filename}")
+        except UnicodeEncodeError as encode_error:
+            print(f"Shift_JIS encoding failed for {filename}: {encode_error}")
+            print("Saving with UTF-8 encoding instead...")
+            with open(filepath, 'w', encoding='utf-8', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames)
+                writer.writeheader()
+                writer.writerows(enhanced_data)
+            print(f"Dataset saved successfully with UTF-8 encoding: {filename}")
         return True
     except Exception as e:
         print(f"Error saving dataset {filename}: {e}")
@@ -761,8 +775,20 @@ def export_dataset(filename):
                 csv_content = output.getvalue()
                 output.close()
                 
-                # Shift_JISでエンコード
-                csv_bytes = csv_content.encode('shift_jis')
+                # Excel対応のエンコーディング処理
+                try:
+                    # まずShift_JISを試行（日本語Excelで最も互換性が高い）
+                    csv_bytes = csv_content.encode('shift_jis')
+                    mimetype = 'text/csv; charset=shift_jis'
+                except UnicodeEncodeError as encode_error:
+                    print(f"Export: Shift_JIS encoding failed: {encode_error}")
+                    print("Export: Using UTF-8 with BOM for Excel compatibility")
+                    # UTF-8 with BOM（ExcelがUTF-8を正しく認識するため）
+                    bom = '\ufeff'
+                    csv_content_with_bom = bom + csv_content
+                    csv_bytes = csv_content_with_bom.encode('utf-8')
+                    mimetype = 'text/csv; charset=utf-8'
+                
                 buffer = io.BytesIO(csv_bytes)
                 
                 # メモリから直接送信（一時ファイル不要）
@@ -770,7 +796,7 @@ def export_dataset(filename):
                     buffer,
                     as_attachment=True,
                     download_name=filename,
-                    mimetype='text/csv'
+                    mimetype=mimetype
                 )
             else:
                 # 空のファイルの場合
@@ -781,14 +807,24 @@ def export_dataset(filename):
                 csv_content = output.getvalue()
                 output.close()
                 
-                csv_bytes = csv_content.encode('shift_jis')
+                # Excel対応のエンコーディング処理
+                try:
+                    csv_bytes = csv_content.encode('shift_jis')
+                    mimetype = 'text/csv; charset=shift_jis'
+                except UnicodeEncodeError:
+                    # UTF-8 with BOM（ExcelがUTF-8を正しく認識するため）
+                    bom = '\ufeff'
+                    csv_content_with_bom = bom + csv_content
+                    csv_bytes = csv_content_with_bom.encode('utf-8')
+                    mimetype = 'text/csv; charset=utf-8'
+                
                 buffer = io.BytesIO(csv_bytes)
                 
                 return send_file(
                     buffer,
                     as_attachment=True,
                     download_name=filename,
-                    mimetype='text/csv'
+                    mimetype=mimetype
                 )
         except Exception as e:
             print(f"Export error: {e}")
@@ -834,25 +870,50 @@ def upload_dataset():
         
         file.seek(0)  # ファイルポインタを先頭に戻す
         
-        # CSV形式の検証
-        lines = content.strip().split('\n')
-        if len(lines) < 1:
-            return redirect(url_for('import_dataset_page', error='空のファイルです。'))
-        
-        header = lines[0].lower().strip()  # 小文字に変換して前後の空白を削除
-        
-        # 新フォーマット（習熟度データ含む）のチェック
-        if ('番号' in header and '質問' in header and '回答' in header and '正解数' in header and '総試行回数' in header and '習熟度スコア' in header):
-            # 拡張フォーマット（番号・習熟度データ含む）
-            pass
-        elif ('質問' in header and '回答' in header and '正解数' in header and '総試行回数' in header and '習熟度スコア' in header):
-            # 拡張フォーマット（習熟度データ含む、番号なし）
-            pass
-        elif ('質問' in header and '回答' in header) or ('question' in header and 'answer' in header):
-            # 旧フォーマット（基本的な質問・回答のみ）
-            pass
-        else:
-            return redirect(url_for('import_dataset_page', error='無効なCSV形式です。ヘッダーは "番号,質問,回答" または "質問,回答" または "question,answer" である必要があります。'))
+        # CSV形式の検証（CSVのパースを実際に試行して検証）
+        try:
+            # StringIOを使ってCSVを実際にパースしてみる
+            from io import StringIO
+            csv_data = StringIO(content)
+            
+            # 最初の行を読んで区切り文字を判定
+            first_line = csv_data.readline()
+            csv_data.seek(0)  # ファイルポインタを先頭に戻す
+            
+            # タブかカンマで区切られているかを判定
+            delimiter = '\t' if '\t' in first_line and first_line.count('\t') > first_line.count(',') else ','
+            delimiter_name = 'TAB' if delimiter == '\t' else 'COMMA'
+            
+            reader = csv.DictReader(csv_data, delimiter=delimiter)
+            
+            # ヘッダーを取得
+            header_fields = reader.fieldnames
+            if not header_fields:
+                return redirect(url_for('import_dataset_page', error='ヘッダー行が見つかりません。'))
+            
+            # フィールド名を正規化（前後の空白を除去）
+            header_fields = [field.strip() for field in header_fields]
+            
+            # フォーマットの検証
+            has_number = '番号' in header_fields
+            has_question = '質問' in header_fields or 'question' in header_fields
+            has_answer = '回答' in header_fields or 'answer' in header_fields
+            has_proficiency = all(field in header_fields for field in ['正解数', '総試行回数', '習熟度スコア'])
+            
+            if not (has_question and has_answer):
+                return redirect(url_for('import_dataset_page', error='無効なCSV形式です。"質問"と"回答"（または"question"と"answer"）の列が必要です。'))
+            
+            # データ行の存在チェック
+            data_rows = list(reader)
+            if len(data_rows) == 0:
+                return redirect(url_for('import_dataset_page', error='データ行が見つかりません。ヘッダー行のみのファイルです。'))
+            
+            print(f"CSV validation successful: {len(data_rows)} data rows found")
+            print(f"Header fields: {header_fields}")
+            
+        except Exception as csv_error:
+            print(f"CSV parsing error: {csv_error}")
+            return redirect(url_for('import_dataset_page', error=f'CSVファイルの解析に失敗しました: {str(csv_error)}'))
         
         # ファイル名の重複チェック
         base_name = file.filename[:-4]  # .csvを除去
@@ -862,13 +923,37 @@ def upload_dataset():
         if os.path.exists(os.path.join(DATASETS_DIR, filename)) and not force_overwrite:
             return redirect(url_for('import_dataset_page', error=f'データセット "{base_name}" は既に存在します。上書きする場合はチェックボックスを選択してください。'))
         
-        # ファイルを保存（Shift_JISで統一）
+        # ファイルを保存（エンコーディング処理を改善）
         ensure_datasets_dir()
         filepath = os.path.join(DATASETS_DIR, filename)
         
-        # コンテンツをShift_JISで保存
-        with open(filepath, 'w', encoding='shift_jis', newline='') as f:
-            f.write(content)
+        # Shift_JISでエンコードできない文字を処理
+        try:
+            # まずShift_JISで保存を試行
+            with open(filepath, 'w', encoding='shift_jis', newline='') as f:
+                f.write(content)
+            print(f"File saved successfully with shift_jis encoding")
+        except UnicodeEncodeError as encode_error:
+            print(f"Shift_JIS encoding failed: {encode_error}")
+            print("Trying to save with UTF-8 encoding and convert problematic characters...")
+            
+            # Shift_JISでエンコードできない文字を置換
+            content_fixed = content.replace('～', '~')  # 全角チルダを半角チルダに
+            content_fixed = content_fixed.replace('　', ' ')  # 全角スペースを半角スペースに
+            content_fixed = content_fixed.replace('－', '-')  # 全角ハイフンを半角ハイフンに
+            content_fixed = content_fixed.replace('＋', '+')  # 全角プラスを半角プラスに
+            
+            try:
+                # 修正後の内容でShift_JIS保存を再試行
+                with open(filepath, 'w', encoding='shift_jis', newline='') as f:
+                    f.write(content_fixed)
+                print(f"File saved successfully with shift_jis encoding after character conversion")
+            except UnicodeEncodeError:
+                # それでも失敗する場合はUTF-8で保存
+                print("Still failed with shift_jis, saving with UTF-8 encoding")
+                with open(filepath, 'w', encoding='utf-8', newline='') as f:
+                    f.write(content)
+                print(f"File saved with UTF-8 encoding")
         
         # データ数をカウント
         data = load_dataset(filename)
@@ -876,7 +961,10 @@ def upload_dataset():
         return redirect(url_for('edit_dataset', filename=filename, msg=f'データセット "{filename[:-4]}" をインポートしました。({len(data)}件)'))
         
     except Exception as e:
-        return redirect(url_for('import_dataset_page', error='ファイルのインポートに失敗しました。'))
+        import traceback
+        error_details = traceback.format_exc()
+        print(f"Import error details: {error_details}")
+        return redirect(url_for('import_dataset_page', error=f'ファイルのインポートに失敗しました: {str(e)}'))
 
 if __name__ == '__main__':
     ensure_datasets_dir()
