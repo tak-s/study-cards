@@ -1,10 +1,11 @@
-from flask import Flask, render_template, request, redirect, url_for, send_file
+from flask import Flask, render_template, request, redirect, url_for, send_file, session
 import csv
 import os
 import random
-from datetime import datetime
+from datetime import datetime, timedelta
 import io
 import base64
+import time
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -15,22 +16,74 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.lib import colors
 
 app = Flask(__name__)
-# secret_key は不要です（flash()を使用せず、URLパラメータでメッセージを渡すため）
+app.secret_key = os.environ.get('SECRET_KEY', 'dev-secret-key-change-in-production')
+app.permanent_session_lifetime = timedelta(minutes=30)
 
 # データセット保存ディレクトリ
 DATASETS_DIR = 'datasets'
 
-def get_message_and_type(request):
-    """URLパラメータからメッセージとタイプを取得"""
-    msg = request.args.get('msg')
-    error = request.args.get('error')
+def set_flash_message(message, message_type='info'):
+    """セッションにメッセージを設定"""
+    if 'flash_messages' not in session:
+        session['flash_messages'] = {}
+    if 'message_counter' not in session:
+        session['message_counter'] = 0
     
-    if error:
-        return error, 'error'
-    elif msg:
-        return msg, 'success'
-    else:
-        return '', ''
+    # メッセージID生成
+    session['message_counter'] += 1
+    message_id = f"msg_{session['message_counter']:03d}"
+    
+    # 期限切れメッセージをクリーンアップ
+    cleanup_expired_messages()
+    
+    # メッセージ数制限（10件まで）
+    if len(session['flash_messages']) >= 10:
+        # 最も古いメッセージを削除
+        oldest_id = min(session['flash_messages'].keys())
+        del session['flash_messages'][oldest_id]
+    
+    # メッセージを保存
+    current_time = time.time()
+    session['flash_messages'][message_id] = {
+        'text': message,
+        'type': message_type,
+        'timestamp': current_time,
+        'expires_at': current_time + 300  # 5分後に期限切れ
+    }
+    session.permanent = True
+    
+    return message_id
+
+def get_flash_message():
+    """セッションからメッセージを取得して削除"""
+    cleanup_expired_messages()
+    
+    if 'flash_messages' not in session or not session['flash_messages']:
+        return '', 'info'
+    
+    # 最新のメッセージを取得
+    message_id = max(session['flash_messages'].keys())
+    message_data = session['flash_messages'].pop(message_id)
+    
+    return message_data['text'], message_data['type']
+
+def cleanup_expired_messages():
+    """期限切れメッセージを削除"""
+    if 'flash_messages' not in session:
+        return
+    
+    current_time = time.time()
+    expired_ids = [
+        msg_id for msg_id, msg_data in session['flash_messages'].items()
+        if current_time > msg_data['expires_at']
+    ]
+    
+    for msg_id in expired_ids:
+        del session['flash_messages'][msg_id]
+
+def get_message_and_type(request):
+    """セッションからメッセージとタイプを取得"""
+    return get_flash_message()
 
 # 日本語フォントの設定
 def setup_fonts():
@@ -305,22 +358,26 @@ def save_dataset_route():
     name = request.form.get('name')
     
     if not name:
-        return redirect(url_for('create_dataset', error='データセット名を入力してください。'))
+        set_flash_message('データセット名を入力してください。', 'error')
+        return redirect(url_for('create_dataset'))
     
     filename = f"{name}.csv"
     
     # 重複チェック
     if os.path.exists(os.path.join(DATASETS_DIR, filename)):
-        return redirect(url_for('create_dataset', error=f'データセット "{name}" は既に存在します。別の名前を使用してください。'))
+        set_flash_message(f'データセット "{name}" は既に存在します。別の名前を使用してください。', 'error')
+        return redirect(url_for('create_dataset'))
     
     # 拡張フォーマット: 番号,質問,回答,正解数,総試行回数,習熟度スコア
     fieldnames = ['番号', '質問', '回答', '正解数', '総試行回数', '習熟度スコア']
     data = []
     
     if save_dataset(filename, data, fieldnames):
-        return redirect(url_for('edit_dataset', filename=filename, msg='データセットを作成しました。'))
+        set_flash_message('データセットを作成しました。', 'success')
+        return redirect(url_for('edit_dataset', filename=filename))
     else:
-        return redirect(url_for('create_dataset', error='データセットの作成に失敗しました。'))
+        set_flash_message('データセットの作成に失敗しました。', 'error')
+        return redirect(url_for('create_dataset'))
 
 @app.route('/edit_dataset/<filename>')
 def edit_dataset(filename):
@@ -362,14 +419,17 @@ def add_item(filename):
     
     # 空のフィールドチェック（必須フィールドのみ）
     if not new_item['質問'] or not new_item['回答']:
-        return redirect(url_for('edit_dataset', filename=filename, error='質問と回答を入力してください。'))
+        set_flash_message('質問と回答を入力してください。', 'error')
+        return redirect(url_for('edit_dataset', filename=filename))
     
     data.append(new_item)
     
     if save_dataset(filename, data, fieldnames):
-        return redirect(url_for('edit_dataset', filename=filename, msg='アイテムを追加しました。'))
+        set_flash_message('アイテムを追加しました。', 'success')
+        return redirect(url_for('edit_dataset', filename=filename))
     else:
-        return redirect(url_for('edit_dataset', filename=filename, error='アイテムの追加に失敗しました。'))
+        set_flash_message('アイテムの追加に失敗しました。', 'error')
+        return redirect(url_for('edit_dataset', filename=filename))
 
 @app.route('/delete_item/<filename>/<int:index>')
 def delete_item(filename, index):
@@ -387,11 +447,14 @@ def delete_item(filename, index):
             item['番号'] = i + 1
         
         if save_dataset(filename, data, fieldnames):
-            return redirect(url_for('edit_dataset', filename=filename, msg='アイテムを削除しました。'))
+            set_flash_message('アイテムを削除しました。', 'success')
+            return redirect(url_for('edit_dataset', filename=filename))
         else:
-            return redirect(url_for('edit_dataset', filename=filename, error='アイテムの削除に失敗しました。'))
+            set_flash_message('アイテムの削除に失敗しました。', 'error')
+            return redirect(url_for('edit_dataset', filename=filename))
     else:
-        return redirect(url_for('edit_dataset', filename=filename, error='無効なアイテムです。'))
+        set_flash_message('無効なアイテムです。', 'error')
+        return redirect(url_for('edit_dataset', filename=filename))
 
 @app.route('/input_results/<filename>')
 def input_results(filename):
@@ -401,7 +464,8 @@ def input_results(filename):
     message, message_type = get_message_and_type(request)
     
     if not data:
-        return redirect(url_for('index', error='データセットが空です。'))
+        set_flash_message('データセットが空です。', 'error')
+        return redirect(url_for('index'))
     
     return render_template('input_results.html',
                          dataset_name=dataset_name,
@@ -417,7 +481,8 @@ def save_results(filename):
     data = load_dataset(filename)
     
     if not data:
-        return redirect(url_for('input_results', filename=filename, error='データセットが空です。'))
+        set_flash_message('データセットが空です。', 'error')
+        return redirect(url_for('input_results', filename=filename))
     
     # 各問題の結果を処理
     updated_count = 0
@@ -429,11 +494,11 @@ def save_results(filename):
                 updated_count += 1
     
     if updated_count > 0:
-        return redirect(url_for('input_results', filename=filename, 
-                              msg=f'{updated_count}問の結果を保存し、習熟度を更新しました。'))
+        set_flash_message(f'{updated_count}問の結果を保存し、習熟度を更新しました。', 'success')
+        return redirect(url_for('input_results', filename=filename))
     else:
-        return redirect(url_for('input_results', filename=filename, 
-                              error='結果が更新されませんでした。問題を選択してください。'))
+        set_flash_message('結果が更新されませんでした。問題を選択してください。', 'error')
+        return redirect(url_for('input_results', filename=filename))
 
 
 
@@ -459,7 +524,8 @@ def create_quiz(filename):
     data = load_dataset(filename)
     
     if not data:
-        return redirect(url_for('generate_quiz', filename=filename, error='データセットが空です。'))
+        set_flash_message('データセットが空です。', 'error')
+        return redirect(url_for('generate_quiz', filename=filename))
     
     try:
         num_questions = int(request.form.get('num_questions', 50))
@@ -476,13 +542,16 @@ def create_quiz(filename):
         
         # 範囲の妥当性チェック
         if start_index < 0 or start_index >= len(data):
-            return redirect(url_for('generate_quiz', filename=filename, error='開始位置が無効です。'))
+            set_flash_message('開始位置が無効です。', 'error')
+            return redirect(url_for('generate_quiz', filename=filename))
         
         if end_index < 0 or end_index >= len(data):
-            return redirect(url_for('generate_quiz', filename=filename, error='終了位置が無効です。'))
+            set_flash_message('終了位置が無効です。', 'error')
+            return redirect(url_for('generate_quiz', filename=filename))
         
         if start_index > end_index:
-            return redirect(url_for('generate_quiz', filename=filename, error='開始位置は終了位置以下にしてください。'))
+            set_flash_message('開始位置は終了位置以下にしてください。', 'error')
+            return redirect(url_for('generate_quiz', filename=filename))
         
         # 指定範囲のデータを取得
         range_data = data[start_index:end_index + 1]
@@ -491,7 +560,8 @@ def create_quiz(filename):
         num_questions = min(max(1, num_questions), len(range_data))
         
         if num_questions < 1:
-            return redirect(url_for('generate_quiz', filename=filename, error='問題数は1以上にしてください。'))
+            set_flash_message('問題数は1以上にしてください。', 'error')
+            return redirect(url_for('generate_quiz', filename=filename))
         
         # 問題の選択
         if selection_method == 'sequential':
@@ -502,9 +572,11 @@ def create_quiz(filename):
             selected_items = random.sample(range_data, num_questions)
             
     except ValueError as e:
-        return redirect(url_for('generate_quiz', filename=filename, error='入力値が正しくありません。'))
+        set_flash_message('入力値が正しくありません。', 'error')
+        return redirect(url_for('generate_quiz', filename=filename))
     except Exception as e:
-        return redirect(url_for('generate_quiz', filename=filename, error='予期しないエラーが発生しました。'))
+        set_flash_message('予期しないエラーが発生しました。', 'error')
+        return redirect(url_for('generate_quiz', filename=filename))
     
     # PDF生成
     pdf_buffer = create_test_pdf(selected_items, filename[:-4], quiz_type)
@@ -735,11 +807,14 @@ def delete_dataset(filename):
     try:
         if os.path.exists(filepath):
             os.remove(filepath)
-            return redirect(url_for('index', msg='データセットを削除しました。'))
+            set_flash_message('データセットを削除しました。', 'success')
+            return redirect(url_for('index'))
         else:
-            return redirect(url_for('index', error='データセットが見つかりません。'))
+            set_flash_message('データセットが見つかりません。', 'error')
+            return redirect(url_for('index'))
     except Exception as e:
-        return redirect(url_for('index', error='データセットの削除に失敗しました。'))
+        set_flash_message('データセットの削除に失敗しました。', 'error')
+        return redirect(url_for('index'))
 
 @app.route('/export_dataset/<filename>')
 def export_dataset(filename):
@@ -828,9 +903,11 @@ def export_dataset(filename):
                 )
         except Exception as e:
             print(f"Export error: {e}")
-            return redirect(url_for('index', error='エクスポートに失敗しました。'))
+            set_flash_message('エクスポートに失敗しました。', 'error')
+            return redirect(url_for('index'))
     else:
-        return redirect(url_for('index', error='データセットが見つかりません。'))
+        set_flash_message('データセットが見つかりません。', 'error')
+        return redirect(url_for('index'))
 
 @app.route('/import_dataset')
 def import_dataset_page():
@@ -846,10 +923,12 @@ def upload_dataset():
     
     file = request.files['file']
     if file.filename == '':
-        return redirect(url_for('import_dataset_page', error='ファイルが選択されていません。'))
+        set_flash_message('ファイルが選択されていません。', 'error')
+        return redirect(url_for('import_dataset_page'))
     
     if not file.filename.endswith('.csv'):
-        return redirect(url_for('import_dataset_page', error='CSVファイルを選択してください。'))
+        set_flash_message('CSVファイルを選択してください。', 'error')
+        return redirect(url_for('import_dataset_page'))
     
     try:
         # ファイル内容を読み込んで検証（エンコーディング自動判定）
@@ -866,7 +945,8 @@ def upload_dataset():
                 continue
         
         if content is None:
-            return redirect(url_for('import_dataset_page', error='ファイルの文字エンコーディングが認識できません。'))
+            set_flash_message('ファイルの文字エンコーディングが認識できません。', 'error')
+            return redirect(url_for('import_dataset_page'))
         
         file.seek(0)  # ファイルポインタを先頭に戻す
         
@@ -889,7 +969,8 @@ def upload_dataset():
             # ヘッダーを取得
             header_fields = reader.fieldnames
             if not header_fields:
-                return redirect(url_for('import_dataset_page', error='ヘッダー行が見つかりません。'))
+                set_flash_message('ヘッダー行が見つかりません。', 'error')
+                return redirect(url_for('import_dataset_page'))
             
             # フィールド名を正規化（前後の空白を除去）
             header_fields = [field.strip() for field in header_fields]
@@ -901,19 +982,22 @@ def upload_dataset():
             has_proficiency = all(field in header_fields for field in ['正解数', '総試行回数', '習熟度スコア'])
             
             if not (has_question and has_answer):
-                return redirect(url_for('import_dataset_page', error='無効なCSV形式です。"質問"と"回答"（または"question"と"answer"）の列が必要です。'))
+                set_flash_message('無効なCSV形式です。"質問"と"回答"（または"question"と"answer"）の列が必要です。', 'error')
+                return redirect(url_for('import_dataset_page'))
             
             # データ行の存在チェック
             data_rows = list(reader)
             if len(data_rows) == 0:
-                return redirect(url_for('import_dataset_page', error='データ行が見つかりません。ヘッダー行のみのファイルです。'))
+                set_flash_message('データ行が見つかりません。ヘッダー行のみのファイルです。', 'error')
+                return redirect(url_for('import_dataset_page'))
             
             print(f"CSV validation successful: {len(data_rows)} data rows found")
             print(f"Header fields: {header_fields}")
             
         except Exception as csv_error:
             print(f"CSV parsing error: {csv_error}")
-            return redirect(url_for('import_dataset_page', error=f'CSVファイルの解析に失敗しました: {str(csv_error)}'))
+            set_flash_message(f'CSVファイルの解析に失敗しました: {str(csv_error)}', 'error')
+            return redirect(url_for('import_dataset_page'))
         
         # ファイル名の重複チェック
         base_name = file.filename[:-4]  # .csvを除去
@@ -921,7 +1005,8 @@ def upload_dataset():
         force_overwrite = request.form.get('force_overwrite')
         
         if os.path.exists(os.path.join(DATASETS_DIR, filename)) and not force_overwrite:
-            return redirect(url_for('import_dataset_page', error=f'データセット "{base_name}" は既に存在します。上書きする場合はチェックボックスを選択してください。'))
+            set_flash_message(f'データセット "{base_name}" は既に存在します。上書きする場合はチェックボックスを選択してください。', 'error')
+            return redirect(url_for('import_dataset_page'))
         
         # ファイルを保存（エンコーディング処理を改善）
         ensure_datasets_dir()
@@ -958,13 +1043,22 @@ def upload_dataset():
         # データ数をカウント
         data = load_dataset(filename)
         
-        return redirect(url_for('edit_dataset', filename=filename, msg=f'データセット "{filename[:-4]}" をインポートしました。({len(data)}件)'))
+        set_flash_message(f'データセット "{filename[:-4]}" をインポートしました。({len(data)}件)', 'success')
+        return redirect(url_for('edit_dataset', filename=filename))
         
     except Exception as e:
         import traceback
         error_details = traceback.format_exc()
         print(f"Import error details: {error_details}")
-        return redirect(url_for('import_dataset_page', error=f'ファイルのインポートに失敗しました: {str(e)}'))
+        set_flash_message(f'ファイルのインポートに失敗しました: {str(e)}', 'error')
+        return redirect(url_for('import_dataset_page'))
+
+@app.before_request
+def cleanup_on_request():
+    """リクエスト前のクリーンアップ（期限切れメッセージの削除）"""
+    import random
+    if random.random() < 0.1:  # 10%の確率でクリーンアップ実行
+        cleanup_expired_messages()
 
 if __name__ == '__main__':
     ensure_datasets_dir()
