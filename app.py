@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for, send_file, session
+from flask import Flask, render_template, request, redirect, url_for, send_file, session, jsonify
 import csv
 import os
 import random
@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 import io
 import base64
 import time
+import uuid
 from reportlab.lib.pagesizes import A4
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
@@ -21,6 +22,9 @@ app.permanent_session_lifetime = timedelta(minutes=30)
 
 # データセット保存ディレクトリ
 DATASETS_DIR = 'datasets'
+
+# オンラインテストセッション管理（メモリ内）
+online_test_sessions = {}
 
 def set_flash_message(message, message_type='info'):
     """セッションにメッセージを設定"""
@@ -174,6 +178,45 @@ def calculate_proficiency_score(correct_count, total_attempts):
         return 0.0
     return round(correct_count / total_attempts, 3)
 
+# オンラインテスト機能
+def create_online_test_session(filename, questions, settings):
+    """オンラインテストセッションを作成"""
+    session_id = str(uuid.uuid4())
+    
+    online_test_sessions[session_id] = {
+        'filename': filename,
+        'questions': questions,
+        'current_question': 0,
+        'user_judgments': [None] * len(questions),  # True/False/None
+        'question_states': ['question'] * len(questions),  # "question"/"answer"/"judged"
+        'start_time': datetime.now(),
+        'settings': settings,
+        'results': {
+            'score': 0,
+            'total_questions': len(questions)
+        }
+    }
+    
+    # 期限切れセッションのクリーンアップ
+    cleanup_expired_test_sessions()
+    
+    return session_id
+
+def get_online_test_session(session_id):
+    """オンラインテストセッションを取得"""
+    return online_test_sessions.get(session_id)
+
+def cleanup_expired_test_sessions():
+    """期限切れテストセッションを削除（1時間経過）"""
+    current_time = datetime.now()
+    expired_sessions = []
+    
+    for session_id, session_data in online_test_sessions.items():
+        if current_time - session_data['start_time'] > timedelta(hours=1):
+            expired_sessions.append(session_id)
+    
+    for session_id in expired_sessions:
+        del online_test_sessions[session_id]
 
 def update_question_proficiency(filename, question_index, is_correct):
     """問題の習熟度データを更新"""
@@ -500,8 +543,359 @@ def save_results(filename):
         set_flash_message('結果が更新されませんでした。問題を選択してください。', 'error')
         return redirect(url_for('input_results', filename=filename))
 
+# オンラインテスト機能
+@app.route('/online_test/<filename>')
+def online_test_setup(filename):
+    """オンラインテスト設定画面"""
+    data = load_dataset(filename)
+    
+    if not data:
+        set_flash_message('データセットが見つかりません。', 'error')
+        return redirect(url_for('index'))
+    
+    # 既存の統計データがあれば取得
+    total_items = len(data)
+    
+    return render_template('online_test_setup.html',
+                         filename=filename,
+                         dataset_name=filename[:-4],
+                         total_items=total_items)
 
+@app.route('/start_online_test/<filename>', methods=['POST'])
+def start_online_test(filename):
+    """オンラインテスト開始"""
+    data = load_dataset(filename)
+    
+    if not data:
+        set_flash_message('データセットが空です。', 'error')
+        return redirect(url_for('online_test_setup', filename=filename))
+    
+    try:
+        num_questions = int(request.form.get('num_questions', 10))
+        quiz_type = request.form.get('quiz_type', 'question_to_answer')
+        selection_method = request.form.get('selection_method', 'random')
+        
+        # 範囲設定の取得
+        range_start = request.form.get('range_start')
+        range_end = request.form.get('range_end')
+        
+        # 範囲の設定（空欄の場合はデフォルト値）
+        start_index = int(range_start) - 1 if range_start else 0  # 1-based to 0-based
+        end_index = int(range_end) - 1 if range_end else len(data) - 1  # 1-based to 0-based
+        
+        # 範囲の妥当性チェック
+        if start_index < 0 or start_index >= len(data):
+            set_flash_message('開始位置が無効です。', 'error')
+            return redirect(url_for('online_test_setup', filename=filename))
+        
+        if end_index < 0 or end_index >= len(data):
+            set_flash_message('終了位置が無効です。', 'error')
+            return redirect(url_for('online_test_setup', filename=filename))
+        
+        if start_index > end_index:
+            set_flash_message('開始位置は終了位置以下にしてください。', 'error')
+            return redirect(url_for('online_test_setup', filename=filename))
+        
+        # 指定範囲のデータを取得
+        range_data = data[start_index:end_index + 1]
+        
+        # 問題数の調整（範囲データのサイズまで）
+        num_questions = min(max(1, num_questions), len(range_data))
+        
+        # 問題の選択
+        if selection_method == 'sequential':
+            # 順番選択：範囲の最初から指定数を選択
+            selected_items = range_data[:num_questions]
+        else:
+            # ランダム選択：範囲からランダムに選択
+            selected_items = random.sample(range_data, num_questions)
+        
+        # テスト設定
+        settings = {
+            'quiz_type': quiz_type
+        }
+        
+        # オンラインテストセッションを作成
+        session_id = create_online_test_session(filename, selected_items, settings)
+        
+        return redirect(url_for('online_test_session', session_id=session_id))
+        
+    except ValueError as e:
+        set_flash_message('入力値が正しくありません。', 'error')
+        return redirect(url_for('online_test_setup', filename=filename))
+    except Exception as e:
+        set_flash_message('予期しないエラーが発生しました。', 'error')
+        return redirect(url_for('online_test_setup', filename=filename))
 
+@app.route('/online_test_session/<session_id>')
+def online_test_session(session_id):
+    """オンラインテスト実行画面"""
+    test_session = get_online_test_session(session_id)
+    
+    if not test_session:
+        set_flash_message('テストセッションが見つかりません。', 'error')
+        return redirect(url_for('index'))
+    
+    return render_template('online_test.html',
+                         session_id=session_id,
+                         test_session=test_session)
+
+@app.route('/show_answer/<session_id>', methods=['POST'])
+def show_answer(session_id):
+    """回答を表示"""
+    test_session = get_online_test_session(session_id)
+    
+    if not test_session:
+        return jsonify({'error': 'セッションが見つかりません'}), 404
+    
+    current_index = test_session['current_question']
+    
+    # 状態を"answer"に変更
+    test_session['question_states'][current_index] = 'answer'
+    
+    return jsonify({'success': True})
+
+@app.route('/submit_judgment/<session_id>', methods=['POST'])
+def submit_judgment(session_id):
+    """自己判定を提出"""
+    test_session = get_online_test_session(session_id)
+    
+    if not test_session:
+        return jsonify({'error': 'セッションが見つかりません'}), 404
+    
+    current_index = test_session['current_question']
+    is_correct = request.json.get('is_correct', False)
+    
+    # 判定結果を記録
+    test_session['user_judgments'][current_index] = is_correct
+    test_session['question_states'][current_index] = 'judged'
+    
+    # スコアを更新
+    if is_correct:
+        test_session['results']['score'] += 1
+    
+    # 習熟度データを更新（オンラインテストの結果をCSVに反映）
+    try:
+        # 現在の問題のオリジナルインデックスを取得
+        current_question = test_session['questions'][current_index]
+        filename = test_session['filename']
+        
+        # 元のデータセットを読み込んで該当問題のインデックスを見つける
+        all_data = load_dataset(filename)
+        original_index = None
+        
+        for i, item in enumerate(all_data):
+            if (item.get('質問') == current_question.get('質問') and 
+                item.get('回答') == current_question.get('回答')):
+                original_index = i
+                break
+        
+        # 習熟度データを更新
+        if original_index is not None:
+            update_question_proficiency(filename, original_index, is_correct)
+            
+    except Exception as e:
+        print(f"習熟度更新エラー: {e}")
+        # エラーが発生してもテストは継続
+    
+    return jsonify({'success': True})
+
+@app.route('/next_question/<session_id>', methods=['POST'])
+def next_question(session_id):
+    """次の問題へ移動"""
+    test_session = get_online_test_session(session_id)
+    
+    if not test_session:
+        return jsonify({'error': 'セッションが見つかりません'}), 404
+    
+    current_index = test_session['current_question']
+    total_questions = len(test_session['questions'])
+    
+    if current_index + 1 < total_questions:
+        test_session['current_question'] = current_index + 1
+        return jsonify({'success': True, 'next_question_index': current_index + 1})
+    else:
+        # テスト終了
+        return jsonify({'success': True, 'test_completed': True})
+
+@app.route('/finish_test/<session_id>', methods=['POST'])
+def finish_test(session_id):
+    """テストを終了"""
+    test_session = get_online_test_session(session_id)
+    
+    if not test_session:
+        return jsonify({'error': 'セッションが見つかりません'}), 404
+    
+    # テスト終了フラグを設定
+    test_session['finished'] = True
+    
+    return jsonify({'success': True, 'test_completed': True})
+
+@app.route('/skip_question/<session_id>', methods=['POST'])
+def skip_question(session_id):
+    """問題をスキップ"""
+    test_session = get_online_test_session(session_id)
+    
+    if not test_session:
+        return jsonify({'error': 'セッションが見つかりません'}), 404
+    
+    current_index = test_session['current_question']
+    
+    # スキップは不正解として記録
+    test_session['user_judgments'][current_index] = False
+    test_session['question_states'][current_index] = 'judged'
+    
+    # 習熟度データを更新（スキップは不正解として記録）
+    try:
+        current_question = test_session['questions'][current_index]
+        filename = test_session['filename']
+        
+        # 元のデータセットを読み込んで該当問題のインデックスを見つける
+        all_data = load_dataset(filename)
+        original_index = None
+        
+        for i, item in enumerate(all_data):
+            if (item.get('質問') == current_question.get('質問') and 
+                item.get('回答') == current_question.get('回答')):
+                original_index = i
+                break
+        
+        # 習熟度データを更新（不正解として記録）
+        if original_index is not None:
+            update_question_proficiency(filename, original_index, False)
+            
+    except Exception as e:
+        print(f"習熟度更新エラー: {e}")
+        # エラーが発生してもテストは継続
+    
+    # 次の問題へ移動
+    total_questions = len(test_session['questions'])
+    
+    if current_index + 1 < total_questions:
+        test_session['current_question'] = current_index + 1
+        return jsonify({'success': True, 'next_question_index': current_index + 1})
+    else:
+        # テスト終了
+        return jsonify({'success': True, 'test_completed': True})
+
+@app.route('/test_results/<session_id>')
+def test_results(session_id):
+    """テスト結果表示"""
+    test_session = get_online_test_session(session_id)
+    
+    if not test_session:
+        set_flash_message('テストセッションが見つかりません。', 'error')
+        return redirect(url_for('index'))
+    
+    # 結果を計算
+    score = test_session['results']['score']
+    total = test_session['results']['total_questions']
+    percentage = round((score / total) * 100, 1) if total > 0 else 0
+    
+    return render_template('test_results.html',
+                         session_id=session_id,
+                         test_session=test_session,
+                         score=score,
+                         total=total,
+                         percentage=percentage)
+
+@app.route('/test_progress/<session_id>')
+def test_progress(session_id):
+    """テスト進捗取得（Ajax用）"""
+    test_session = get_online_test_session(session_id)
+    
+    if not test_session:
+        return jsonify({'error': 'セッションが見つかりません'}), 404
+    
+    # 実際に回答済みの問題数を計算
+    answered_questions = sum(1 for judgment in test_session['user_judgments'] if judgment is not None)
+    
+    return jsonify({
+        'current_question': test_session['current_question'],
+        'total_questions': test_session['results']['total_questions'],
+        'score': test_session['results']['score'],
+        'total': test_session['results']['total_questions'],
+        'answered_questions': answered_questions
+    })
+
+@app.route('/get_historical_accuracy/<session_id>')
+def get_historical_accuracy(session_id):
+    """現在の問題の過去の正解率を取得"""
+    test_session = get_online_test_session(session_id)
+    
+    if not test_session:
+        return jsonify({'error': 'セッションが見つかりません'}), 404
+    
+    try:
+        current_index = test_session['current_question']
+        current_question = test_session['questions'][current_index]
+        filename = test_session['filename']
+        
+        # 元のデータセットを読み込んで該当問題のインデックスを見つける
+        all_data = load_dataset(filename)
+        original_index = None
+        
+        for i, item in enumerate(all_data):
+            if (item.get('質問') == current_question.get('質問') and 
+                item.get('回答') == current_question.get('回答')):
+                original_index = i
+                break
+        
+        if original_index is not None:
+            item = all_data[original_index]
+            correct_count = int(item.get('正解数', 0))
+            total_attempts = int(item.get('総試行回数', 0))
+            
+            return jsonify({
+                'success': True,
+                'correct_count': correct_count,
+                'total_attempts': total_attempts,
+                'accuracy': correct_count / total_attempts if total_attempts > 0 else 0
+            })
+        else:
+            return jsonify({
+                'success': True,
+                'correct_count': 0,
+                'total_attempts': 0,
+                'accuracy': 0
+            })
+            
+    except Exception as e:
+        print(f"過去正解率取得エラー: {e}")
+        return jsonify({'error': '過去の正解率取得に失敗しました'}), 500
+
+@app.route('/get_current_question/<session_id>')
+def get_current_question(session_id):
+    """現在の問題データを取得"""
+    test_session = get_online_test_session(session_id)
+    
+    if not test_session:
+        return jsonify({'error': 'セッションが見つかりません'}), 404
+    
+    try:
+        current_index = test_session['current_question']
+        current_question = test_session['questions'][current_index]
+        quiz_type = test_session['settings']['quiz_type']
+        
+        # 問題文と回答文を決定
+        if quiz_type == 'question_to_answer':
+            question_text = current_question.get('質問', '')
+            answer_text = current_question.get('回答', '')
+        else:
+            question_text = current_question.get('回答', '')
+            answer_text = current_question.get('質問', '')
+        
+        return jsonify({
+            'success': True,
+            'current_question': current_index,
+            'total_questions': test_session['results']['total_questions'],
+            'question_text': question_text,
+            'answer_text': answer_text
+        })
+        
+    except Exception as e:
+        print(f"現在問題取得エラー: {e}")
+        return jsonify({'error': '現在の問題取得に失敗しました'}), 500
 
 
 @app.route('/generate_quiz/<filename>')

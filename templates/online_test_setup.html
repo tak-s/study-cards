@@ -1,0 +1,336 @@
+{% extends "base.html" %}
+
+{% block title %}{{ dataset_name }} オンラインテスト設定 - StudyCards{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1><i class="fas fa-laptop"></i> {{ dataset_name }} オンラインテスト設定</h1>
+            <div>
+                <a href="{{ url_for('edit_dataset', filename=filename) }}" class="btn btn-secondary">
+                    <i class="fas fa-arrow-left"></i> 戻る
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        {% if total_items == 0 %}
+        <div class="card">
+            <div class="card-body text-center py-5">
+                <i class="fas fa-exclamation-triangle fa-3x text-warning mb-3"></i>
+                <h4 class="text-warning">データが不足しています</h4>
+                <p class="text-muted">テストを生成するためには、最低1つのアイテムが必要です。</p>
+                <a href="{{ url_for('edit_dataset', filename=filename) }}" class="btn btn-primary">
+                    <i class="fas fa-plus"></i> アイテムを追加
+                </a>
+            </div>
+        </div>
+        {% else %}
+        
+        <!-- テスト形式選択 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h5><i class="fas fa-check-circle"></i> テスト形式選択</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100" style="cursor: pointer;" onclick="selectTestType('pdf')">
+                            <div class="card-body text-center">
+                                <i class="fas fa-file-pdf fa-3x text-danger mb-3"></i>
+                                <h5>PDF印刷テスト</h5>
+                                <p class="text-muted">印刷用のPDFを生成</p>
+                                <a href="{{ url_for('generate_quiz', filename=filename) }}" class="btn btn-outline-danger">
+                                    PDF設定へ
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <div class="card h-100 border-primary" style="background-color: #f8f9ff;">
+                            <div class="card-body text-center">
+                                <i class="fas fa-laptop fa-3x text-primary mb-3"></i>
+                                <h5>オンラインテスト</h5>
+                                <p class="text-muted">ブラウザで直接実行</p>
+                                <div class="badge bg-success mb-2">選択中</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- オンラインテスト設定 -->
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-cog"></i> オンラインテスト設定</h5>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="{{ url_for('start_online_test', filename=filename) }}" id="onlineTestForm">
+                    
+                    <!-- 問題数設定 -->
+                    <div class="mb-4">
+                        <label for="num_questions" class="form-label">問題数</label>
+                        <input type="number" class="form-control form-control-lg" id="num_questions" name="num_questions" 
+                               value="10" min="1" max="{{ total_items }}" required>
+                        <div class="form-text">
+                            利用可能なアイテム数: {{ total_items }}件
+                        </div>
+                    </div>
+                    
+                    <!-- 対象範囲 -->
+                    <div class="mb-4">
+                        <label class="form-label">対象範囲</label>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label for="range_start" class="form-label">開始位置</label>
+                                <input type="number" class="form-control form-control-lg" id="range_start" name="range_start" 
+                                       min="1" max="{{ total_items }}" placeholder="1">
+                                <div class="form-text">空欄の場合は最初から</div>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="range_end" class="form-label">終了位置</label>
+                                <input type="number" class="form-control form-control-lg" id="range_end" name="range_end" 
+                                       min="1" max="{{ total_items }}" placeholder="{{ total_items }}">
+                                <div class="form-text">空欄の場合は最後まで</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 問題選択方法 -->
+                    <div class="mb-4">
+                        <label class="form-label">問題選択方法</label>
+                        <div class="row">
+                            <div class="col-12 mb-3">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <input type="radio" class="form-check-input" id="selection_random" 
+                                               name="selection_method" value="random" checked>
+                                        <label class="form-check-label w-100" for="selection_random">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <h6 class="mb-1">ランダム選択</h6>
+                                                    <small class="text-muted">指定範囲からランダムに問題を選択</small>
+                                                </div>
+                                                <i class="fas fa-random text-warning"></i>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <input type="radio" class="form-check-input" id="selection_sequential" 
+                                               name="selection_method" value="sequential">
+                                        <label class="form-check-label w-100" for="selection_sequential">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <h6 class="mb-1">順番選択</h6>
+                                                    <small class="text-muted">指定範囲から順番に問題を選択</small>
+                                                </div>
+                                                <i class="fas fa-sort-numeric-down text-info"></i>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 問題タイプ -->
+                    <div class="mb-4">
+                        <label class="form-label">問題タイプ</label>
+                        <div class="row">
+                            <div class="col-12 mb-3">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <input type="radio" class="form-check-input" id="question_to_answer" 
+                                               name="quiz_type" value="question_to_answer" checked>
+                                        <label class="form-check-label w-100" for="question_to_answer">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <h6 class="mb-1">質問 → 回答</h6>
+                                                    <small class="text-muted">質問を見て回答を答えるテスト</small>
+                                                </div>
+                                                <i class="fas fa-arrow-right text-primary"></i>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <input type="radio" class="form-check-input" id="answer_to_question" 
+                                               name="quiz_type" value="answer_to_question">
+                                        <label class="form-check-label w-100" for="answer_to_question">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <h6 class="mb-1">回答 → 質問</h6>
+                                                    <small class="text-muted">回答を見て質問を答えるテスト</small>
+                                                </div>
+                                                <i class="fas fa-arrow-left text-success"></i>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 開始ボタン -->
+                    <div class="d-grid">
+                        <button type="submit" class="btn btn-success btn-lg" style="min-height: 60px; font-size: 20px;">
+                            <i class="fas fa-play"></i> オンラインテストを開始
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- 説明カード -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h6><i class="fas fa-info-circle"></i> オンラインテストについて</h6>
+            </div>
+            <div class="card-body">
+                <ul class="mb-0">
+                    <li><strong>自己判定方式:</strong> 問題を見て頭の中で回答し、正解を確認後に自己評価</li>
+                    <li><strong>スマートフォン対応:</strong> iPhoneなどのモバイルデバイスで快適に学習</li>
+                    <li><strong>進捗管理:</strong> リアルタイムで学習進捗を確認</li>
+                    <li><strong>柔軟な学習:</strong> 表記の揺れや同義語も自己判定で対応</li>
+                    <li><strong>結果レポート:</strong> テスト終了後に詳細な結果を表示</li>
+                </ul>
+            </div>
+        </div>
+        
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // ラジオボタンのスタイル処理（既存のコードを流用）
+    const radioButtons = document.querySelectorAll('input[type="radio"]');
+    
+    radioButtons.forEach(radio => {
+        radio.addEventListener('change', function() {
+            // 同じname属性のカードのスタイルをリセット
+            const sameName = document.querySelectorAll(`input[name="${this.name}"]`);
+            sameName.forEach(r => {
+                const card = r.closest('.card');
+                card.style.borderColor = '';
+                card.style.backgroundColor = '';
+            });
+            
+            // 選択されたカードをハイライト
+            const selectedCard = this.closest('.card');
+            selectedCard.style.borderColor = '#0d6efd';
+            selectedCard.style.backgroundColor = '#f8f9ff';
+        });
+    });
+    
+    // 初期選択状態を設定
+    const checkedRadios = document.querySelectorAll('input[type="radio"]:checked');
+    checkedRadios.forEach(radio => {
+        const selectedCard = radio.closest('.card');
+        selectedCard.style.borderColor = '#0d6efd';
+        selectedCard.style.backgroundColor = '#f8f9ff';
+    });
+    
+    // 問題数の自動調整（既存のコードを流用）
+    const numQuestionsInput = document.getElementById('num_questions');
+    const rangeStartInput = document.getElementById('range_start');
+    const rangeEndInput = document.getElementById('range_end');
+    const maxQuestions = parseInt('{{ total_items }}');
+    
+    // 範囲入力の検証
+    function validateRange() {
+        const start = parseInt(rangeStartInput.value) || 1;
+        const end = parseInt(rangeEndInput.value) || maxQuestions;
+        
+        // 開始位置が終了位置より大きい場合の処理
+        if (start > end) {
+            rangeStartInput.parentElement.querySelector('.form-text').style.color = 'red';
+            rangeStartInput.parentElement.querySelector('.form-text').textContent = '開始位置は終了位置以下にしてください';
+            rangeEndInput.parentElement.querySelector('.form-text').style.color = 'red';
+            rangeEndInput.parentElement.querySelector('.form-text').textContent = '終了位置は開始位置以上にしてください';
+            
+            numQuestionsInput.max = 0;
+            numQuestionsInput.value = 0;
+            return false;
+        } else {
+            rangeStartInput.parentElement.querySelector('.form-text').style.color = '';
+            rangeStartInput.parentElement.querySelector('.form-text').textContent = '空欄の場合は最初から';
+            rangeEndInput.parentElement.querySelector('.form-text').style.color = '';
+            rangeEndInput.parentElement.querySelector('.form-text').textContent = '空欄の場合は最後まで';
+        }
+        
+        const rangeSize = Math.max(0, end - start + 1);
+        
+        numQuestionsInput.max = rangeSize;
+        if (parseInt(numQuestionsInput.value) > rangeSize) {
+            numQuestionsInput.value = rangeSize;
+        }
+        
+        return true;
+    }
+    
+    numQuestionsInput.addEventListener('input', function() {
+        const maxAvailable = parseInt(this.max);
+        if (parseInt(this.value) > maxAvailable) {
+            this.value = maxAvailable;
+        }
+        if (parseInt(this.value) < 1) {
+            this.value = 1;
+        }
+    });
+    
+    rangeStartInput.addEventListener('input', function() {
+        if (parseInt(this.value) > maxQuestions) {
+            this.value = maxQuestions;
+        }
+        if (parseInt(this.value) < 1 && this.value !== '') {
+            this.value = 1;
+        }
+        validateRange();
+    });
+    
+    rangeEndInput.addEventListener('input', function() {
+        if (parseInt(this.value) > maxQuestions) {
+            this.value = maxQuestions;
+        }
+        if (parseInt(this.value) < 1 && this.value !== '') {
+            this.value = 1;
+        }
+        validateRange();
+    });
+    
+    // 初期検証
+    validateRange();
+    
+    // フォーム送信時のバリデーション
+    document.getElementById('onlineTestForm').addEventListener('submit', function(e) {
+        if (!validateRange()) {
+            e.preventDefault();
+            alert('開始位置と終了位置を正しく設定してください。');
+            return false;
+        }
+        
+        const numQuestions = parseInt(numQuestionsInput.value);
+        if (numQuestions < 1) {
+            e.preventDefault();
+            alert('問題数は1以上に設定してください。');
+            return false;
+        }
+    });
+});
+</script>
+{% endblock %}

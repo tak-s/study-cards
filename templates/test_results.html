@@ -1,0 +1,246 @@
+{% extends "base.html" %}
+
+{% block title %}テスト結果 - StudyCards{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row justify-content-center">
+        <div class="col-12 col-md-8 col-lg-6">
+            
+            <!-- 結果サマリー -->
+            <div class="card mb-4">
+                <div class="card-header text-center">
+                    <h3><i class="fas fa-trophy"></i> テスト結果</h3>
+                </div>
+                <div class="card-body text-center">
+                    <div class="row">
+                        <div class="col-4">
+                            <div class="border-end">
+                                <h2 class="text-primary mb-1">{{ score }}</h2>
+                                <small class="text-muted">正解数</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="border-end">
+                                <h2 class="text-info mb-1">{{ total }}</h2>
+                                <small class="text-muted">総問題数</small>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <h2 class="{% if percentage >= 80 %}text-success{% elif percentage >= 60 %}text-warning{% else %}text-danger{% endif %} mb-1">
+                                {{ percentage }}%
+                            </h2>
+                            <small class="text-muted">正解率</small>
+                        </div>
+                    </div>
+                    
+                    <!-- 進捗バー -->
+                    <div class="mt-4">
+                        <div class="progress progress-mobile">
+                            <div class="progress-bar {% if percentage >= 80 %}bg-success{% elif percentage >= 60 %}bg-warning{% else %}bg-danger{% endif %}" 
+                                 role="progressbar" style="width: {{ percentage }}%">
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- 評価コメント -->
+                    <div class="mt-4">
+                        {% if percentage >= 90 %}
+                            <div class="alert alert-success">
+                                <i class="fas fa-star"></i> 素晴らしい結果です！完璧に近い理解度です。
+                            </div>
+                        {% elif percentage >= 80 %}
+                            <div class="alert alert-success">
+                                <i class="fas fa-thumbs-up"></i> 良い結果です！しっかりと理解できています。
+                            </div>
+                        {% elif percentage >= 60 %}
+                            <div class="alert alert-warning">
+                                <i class="fas fa-chart-line"></i> もう少しです！復習して理解を深めましょう。
+                            </div>
+                        {% else %}
+                            <div class="alert alert-info">
+                                <i class="fas fa-book"></i> 学習を続けましょう！繰り返し練習が効果的です。
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 問題別詳細 -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5><i class="fas fa-list"></i> 問題別結果</h5>
+                </div>
+                <div class="card-body">
+                    {% for i in range(test_session.results.total_questions) %}
+                        {% set question = test_session.questions[i] %}
+                        {% set judgment = test_session.user_judgments[i] %}
+                        {% set state = test_session.question_states[i] %}
+                        <div class="d-flex align-items-center mb-3 p-3 border rounded">
+                            <div class="me-3">
+                                {% if judgment == True %}
+                                    <i class="fas fa-check-circle text-success fa-lg"></i>
+                                {% elif judgment == False and state == 'judged' %}
+                                    <i class="fas fa-times-circle text-danger fa-lg"></i>
+                                {% else %}
+                                    <i class="fas fa-question-circle text-warning fa-lg"></i>
+                                {% endif %}
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="fw-bold">
+                                    問題 {{ i + 1 }}: 
+                                    {% if test_session.settings.quiz_type == 'question_to_answer' %}
+                                        {{ question.質問 }}
+                                    {% else %}
+                                        {{ question.回答 }}
+                                    {% endif %}
+                                </div>
+                                <div class="text-muted">
+                                    正解: 
+                                    {% if test_session.settings.quiz_type == 'question_to_answer' %}
+                                        {{ question.回答 }}
+                                    {% else %}
+                                        {{ question.質問 }}
+                                    {% endif %}
+                                </div>
+                            </div>
+                            <div class="ms-2">
+                                {% if judgment == True %}
+                                    <span class="badge bg-success">正解</span>
+                                {% elif judgment == False and state == 'judged' %}
+                                    <span class="badge bg-danger">不正解</span>
+                                {% elif judgment == False and state != 'judged' %}
+                                    <span class="badge bg-warning">スキップ</span>
+                                {% else %}
+                                    <span class="badge bg-secondary">未回答</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+            
+            <!-- アクションボタン -->
+            <div class="row g-3">
+                <div class="col-12">
+                    <div class="d-grid">
+                        <a href="{{ url_for('online_test_setup', filename=test_session.filename) }}" 
+                           class="btn btn-primary btn-mobile-primary">
+                            <i class="fas fa-redo"></i> もう一度テストする
+                        </a>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="d-grid">
+                        <a href="{{ url_for('edit_dataset', filename=test_session.filename) }}" 
+                           class="btn btn-secondary btn-mobile-primary">
+                            <i class="fas fa-edit"></i> データセット編集
+                        </a>
+                    </div>
+                </div>
+                <div class="col-6">
+                    <div class="d-grid">
+                        <a href="{{ url_for('index') }}" 
+                           class="btn btn-outline-secondary btn-mobile-primary">
+                            <i class="fas fa-home"></i> ホーム
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // 結果のアニメーション効果
+    const scoreElements = document.querySelectorAll('h2');
+    scoreElements.forEach((element, index) => {
+        element.style.opacity = '0';
+        element.style.transform = 'translateY(20px)';
+        
+        setTimeout(() => {
+            element.style.transition = 'all 0.5s ease';
+            element.style.opacity = '1';
+            element.style.transform = 'translateY(0)';
+        }, index * 200);
+    });
+    
+    // 進捗バーのアニメーション
+    const progressBar = document.querySelector('.progress-bar');
+    if (progressBar) {
+        const targetWidth = progressBar.style.width;
+        progressBar.style.width = '0%';
+        
+        setTimeout(() => {
+            progressBar.style.transition = 'width 1s ease';
+            progressBar.style.width = targetWidth;
+        }, 800);
+    }
+});
+</script>
+
+<style>
+/* スマートフォン最適化CSS */
+.btn-mobile-primary {
+    min-height: 50px;
+    font-size: 18px;
+    padding: 12px 24px;
+    margin: 8px 0;
+    border-radius: 8px;
+    touch-action: manipulation;
+}
+
+.progress-mobile {
+    height: 12px;
+    border-radius: 6px;
+}
+
+@media (max-width: 768px) {
+    .btn-mobile-primary {
+        min-height: 55px;
+        font-size: 16px;
+    }
+    
+    .card-body .row .col-4 h2 {
+        font-size: 1.5rem;
+    }
+    
+    .border-end {
+        border-right: none !important;
+        border-bottom: 1px solid #dee2e6 !important;
+        margin-bottom: 1rem;
+        padding-bottom: 1rem;
+    }
+    
+    .border-end:last-child {
+        border-bottom: none !important;
+        margin-bottom: 0;
+        padding-bottom: 0;
+    }
+}
+
+/* 問題詳細の改善 */
+@media (max-width: 576px) {
+    .d-flex.align-items-center {
+        flex-direction: column;
+        align-items: flex-start !important;
+    }
+    
+    .d-flex.align-items-center .me-3 {
+        margin-right: 0 !important;
+        margin-bottom: 0.5rem;
+        align-self: center;
+    }
+    
+    .d-flex.align-items-center .ms-2 {
+        margin-left: 0 !important;
+        margin-top: 0.5rem;
+        align-self: center;
+    }
+}
+</style>
+{% endblock %}
