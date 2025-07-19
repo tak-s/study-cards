@@ -130,6 +130,14 @@
                         </a>
                     </div>
                 </div>
+                <div class="col-12">
+                    <div class="d-grid">
+                        <a href="{{ url_for('quick_10_test', filename=test_session.filename) }}" 
+                           class="btn btn-warning btn-mobile-primary">
+                            <i class="fas fa-bolt"></i> クイック10（習熟度低い問題）
+                        </a>
+                    </div>
+                </div>
                 <div class="col-6">
                     <div class="d-grid">
                         <a href="{{ url_for('edit_dataset', filename=test_session.filename) }}" 
