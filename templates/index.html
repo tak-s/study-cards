@@ -62,6 +62,14 @@
                 
                 <!-- アクションボタン -->
                 <div class="d-grid gap-2">
+                    <!-- クイック10ボタン (習熟度低い問題が存在する場合のみ表示) -->
+                    {% if dataset.stats.total_problems >= 1 %}
+                    <a href="{{ url_for('quick_10_test', filename=dataset.filename) }}" 
+                       class="btn btn-warning">
+                        <i class="fas fa-bolt me-2"></i>クイック10
+                        <small class="d-block" style="font-size: 0.75em; opacity: 0.8;">習熟度の低い問題から10問</small>
+                    </a>
+                    {% endif %}
                     <a href="{{ url_for('online_test_setup', filename=dataset.filename) }}" 
                        class="btn btn-info">
                         <i class="fas fa-laptop me-2"></i>オンラインテスト

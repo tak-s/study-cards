@@ -179,7 +179,7 @@ def calculate_proficiency_score(correct_count, total_attempts):
     return round(correct_count / total_attempts, 3)
 
 # オンラインテスト機能
-def create_online_test_session(filename, questions, settings):
+def create_online_test_session(filename, questions, settings, is_quick_10=False):
     """オンラインテストセッションを作成"""
     session_id = str(uuid.uuid4())
     
@@ -191,6 +191,7 @@ def create_online_test_session(filename, questions, settings):
         'question_states': ['question'] * len(questions),  # "question"/"answer"/"judged"
         'start_time': datetime.now(),
         'settings': settings,
+        'is_quick_10': is_quick_10,  # クイック10フラグ
         'results': {
             'score': 0,
             'total_questions': len(questions)
@@ -673,6 +674,46 @@ def online_test_setup(filename):
                          total_items=total_items,
                          mastery_distribution=mastery_dist)
 
+@app.route('/quick_10/<filename>')
+def quick_10_test(filename):
+    """クイック10テスト: 習熟度が低い問題から10問をランダム選択して即開始"""
+    data = load_dataset(filename)
+    
+    if not data:
+        set_flash_message('データセットが見つかりません。', 'error')
+        return redirect(url_for('index'))
+    
+    # 習熟度が低い問題（60%未満）を抽出
+    weak_problems = get_weak_problems(data, threshold=0.6)
+    
+    # 習熟度の低い問題が10問未満の場合、閾値を上げて問題を追加
+    if len(weak_problems) < 10:
+        # 80%未満まで拡張
+        weak_problems = get_weak_problems(data, threshold=0.8)
+        
+        # まだ足りない場合は全問題から選択
+        if len(weak_problems) < 10:
+            weak_problems = data
+    
+    # 最大10問を選択
+    num_questions = min(10, len(weak_problems))
+    if num_questions == 0:
+        set_flash_message('出題可能な問題がありません。', 'error')
+        return redirect(url_for('index'))
+    
+    # ランダムに問題を選択
+    selected_problems = random.sample(weak_problems, num_questions)
+    
+    # テスト設定
+    settings = {
+        'quiz_type': 'question_to_answer'
+    }
+    
+    # オンラインテストセッションを作成
+    session_id = create_online_test_session(filename, selected_problems, settings, is_quick_10=True)
+    
+    return redirect(url_for('online_test_session', session_id=session_id))
+
 @app.route('/start_online_test/<filename>', methods=['POST'])
 def start_online_test(filename):
     """オンラインテスト開始"""
@@ -740,7 +781,7 @@ def start_online_test(filename):
         }
         
         # オンラインテストセッションを作成
-        session_id = create_online_test_session(filename, selected_items, settings)
+        session_id = create_online_test_session(filename, selected_items, settings, is_quick_10=False)
         
         return redirect(url_for('online_test_session', session_id=session_id))
         

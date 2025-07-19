@@ -1,11 +1,23 @@
 {% extends "base.html" %}
 
-{% block title %}オンラインテスト実行 - StudyCards{% endblock %}
+{% block title %}
+    {% if test_session.is_quick_10 %}クイック10テスト{% else %}オンラインテスト実行{% endif %} - StudyCards
+{% endblock %}
 
 {% block content %}
 <div class="container-fluid">
     <div class="row justify-content-center">
         <div class="col-12 col-md-8 col-lg-6">
+            
+            <!-- テストヘッダー -->
+            {% if test_session.is_quick_10 %}
+            <div class="alert alert-warning text-center mb-3">
+                <h4 class="mb-0">
+                    <i class="fas fa-bolt me-2"></i>クイック10テスト
+                </h4>
+                <small>習熟度の低い問題から10問をピックアップ</small>
+            </div>
+            {% endif %}
             
             <!-- 進捗表示 -->
             <div class="card mb-3">
