@@ -196,11 +196,12 @@
                         <div class="mt-3">
                             <small class="text-muted">習熟度分布:</small>
                             <div class="progress" style="height: 25px;">
+                                <!-- Jinja2変数でパーセンテージを計算 -->
                                 {% set weak_percent = (mastery_distribution.weak / mastery_distribution.total * 100) if mastery_distribution.total > 0 else 0 %}
                                 {% set moderate_percent = (mastery_distribution.moderate / mastery_distribution.total * 100) if mastery_distribution.total > 0 else 0 %}
                                 {% set strong_percent = (mastery_distribution.strong / mastery_distribution.total * 100) if mastery_distribution.total > 0 else 0 %}
                                 
-                                <!-- css-lint-disable -->
+                                <!-- 注意: 以下のJinja2変数使用はCSS Lintでエラーになりますが、正常な動作です -->
                                 <div class="progress-bar bg-warning" role="progressbar" style="width: {{ weak_percent }}%"
                                      title="弱点 (60%未満): {{ mastery_distribution.weak }}問">
                                     {% if weak_percent > 15 %}弱点 {{ mastery_distribution.weak }}{% endif %}
@@ -213,7 +214,6 @@
                                      title="習得済み (80%以上): {{ mastery_distribution.strong }}問">
                                     {% if strong_percent > 15 %}習得済み {{ mastery_distribution.strong }}{% endif %}
                                 </div>
-                                <!-- css-lint-enable -->
                             </div>
                         </div>
                     </div>
