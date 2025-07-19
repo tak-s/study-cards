@@ -608,6 +608,53 @@ def delete_item(filename, index):
         set_flash_message('無効なアイテムです。', 'error')
         return redirect(url_for('edit_dataset', filename=filename))
 
+@app.route('/reset_mastery/<filename>/<int:index>')
+def reset_single_mastery(filename, index):
+    """個別問題の習熟度をリセット"""
+    data = load_dataset(filename)
+    
+    if 0 <= index < len(data):
+        # 習熟度データをリセット
+        data[index]['正解数'] = 0
+        data[index]['総試行回数'] = 0
+        data[index]['習熟度スコア'] = 0.0
+        
+        fieldnames = ['番号', '質問', '回答', '正解数', '総試行回数', '習熟度スコア']
+        
+        if save_dataset(filename, data, fieldnames):
+            set_flash_message('習熟度をリセットしました。', 'success')
+            return redirect(url_for('edit_dataset', filename=filename))
+        else:
+            set_flash_message('習熟度のリセットに失敗しました。', 'error')
+            return redirect(url_for('edit_dataset', filename=filename))
+    else:
+        set_flash_message('無効なアイテムです。', 'error')
+        return redirect(url_for('edit_dataset', filename=filename))
+
+@app.route('/reset_all_mastery/<filename>')
+def reset_all_mastery(filename):
+    """全問題の習熟度を一括リセット"""
+    data = load_dataset(filename)
+    
+    if not data:
+        set_flash_message('データセットが空です。', 'error')
+        return redirect(url_for('edit_dataset', filename=filename))
+    
+    # 全問題の習熟度データをリセット
+    for item in data:
+        item['正解数'] = 0
+        item['総試行回数'] = 0
+        item['習熟度スコア'] = 0.0
+    
+    fieldnames = ['番号', '質問', '回答', '正解数', '総試行回数', '習熟度スコア']
+    
+    if save_dataset(filename, data, fieldnames):
+        set_flash_message(f'全{len(data)}問の習熟度をリセットしました。', 'success')
+        return redirect(url_for('edit_dataset', filename=filename))
+    else:
+        set_flash_message('習熟度の一括リセットに失敗しました。', 'error')
+        return redirect(url_for('edit_dataset', filename=filename))
+
 @app.route('/input_results/<filename>')
 def input_results(filename):
     """印刷したテストの結果を手動で入力"""
