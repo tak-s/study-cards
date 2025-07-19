@@ -925,6 +925,7 @@ def create_quiz(filename):
         num_questions = int(request.form.get('num_questions', 50))
         quiz_type = request.form.get('quiz_type', 'question_to_answer')
         selection_method = request.form.get('selection_method', 'random')
+        include_answers = request.form.get('include_answers', 'no')
         
         # 範囲設定の取得
         range_start = request.form.get('range_start')
@@ -973,7 +974,7 @@ def create_quiz(filename):
         return redirect(url_for('generate_quiz', filename=filename))
     
     # PDF生成
-    pdf_buffer = create_test_pdf(selected_items, filename[:-4], quiz_type)
+    pdf_buffer = create_test_pdf(selected_items, filename[:-4], quiz_type, include_answers)
     
     # PDFをファイルとして返す
     return send_file(
@@ -983,14 +984,15 @@ def create_quiz(filename):
         mimetype='application/pdf'
     )
 
-def create_test_pdf(items, dataset_name, quiz_type):
+def create_test_pdf(items, dataset_name, quiz_type, include_answers='no'):
     """問題のPDFを作成（統一フォーマット：質問,回答）"""
     buffer = io.BytesIO()
     
     # フォント設定
     font_available = setup_fonts()
     
-    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=20*mm, bottomMargin=20*mm)
+    doc = SimpleDocTemplate(buffer, pagesize=A4, topMargin=10*mm, bottomMargin=10*mm, 
+                          leftMargin=10*mm, rightMargin=10*mm)
     story = []
     
     # スタイル設定
@@ -1014,7 +1016,7 @@ def create_test_pdf(items, dataset_name, quiz_type):
             parent=styles['Title'],
             fontName='Japanese',
             fontSize=16,
-            spaceAfter=20
+            spaceAfter=5
         )
         
         question_style = ParagraphStyle(
@@ -1029,7 +1031,7 @@ def create_test_pdf(items, dataset_name, quiz_type):
             'CustomTitle',
             parent=styles['Title'],
             fontSize=16,
-            spaceAfter=20
+            spaceAfter=5
         )
         
         question_style = ParagraphStyle(
@@ -1048,7 +1050,7 @@ def create_test_pdf(items, dataset_name, quiz_type):
     
     title_paragraph = Paragraph(title_text, title_style)
     story.append(title_paragraph)
-    story.append(Spacer(1, 10*mm))
+    story.append(Spacer(1, 3*mm))
     
     # 全ての問題を処理（50問を超えた場合は複数ページ）
     total_items = len(items)
@@ -1076,7 +1078,7 @@ def create_test_pdf(items, dataset_name, quiz_type):
                 page_title = escape_japanese(f"{dataset_name} - 問題 (ページ {page_num})")
             
             story.append(Paragraph(page_title, title_style))
-            story.append(Spacer(1, 10*mm))
+            story.append(Spacer(1, 3*mm))
         
         # 表データを準備（2列構成：左側25問、右側25問）
         table_data = []
@@ -1096,17 +1098,31 @@ def create_test_pdf(items, dataset_name, quiz_type):
                     # 回答→質問
                     question_text = (left_item.get('回答') or 
                                    left_item.get('answer') or '')
+                    answer_text = (left_item.get('質問') or 
+                                 left_item.get('question') or '')
                 else:
                     # 質問→回答（デフォルト）
                     question_text = (left_item.get('質問') or 
                                    left_item.get('question') or '')
+                    answer_text = (left_item.get('回答') or 
+                                 left_item.get('answer') or '')
                 
                 if question_text:
                     if font_available:
                         left_question = f"{left_item.get('番号', current_item_index + i + 1)}. {question_text}"
                     else:
                         left_question = escape_japanese(f"{left_item.get('番号', current_item_index + i + 1)}. {question_text}")
-                    left_answer = "________________"
+                    
+                    # 回答欄の処理
+                    if include_answers == 'red':
+                        # 薄い赤字で回答を表示（赤シートで隠しやすいように）
+                        if font_available:
+                            left_answer = f"<font color='#FF6666'>{answer_text}</font>"
+                        else:
+                            left_answer = f"<font color='#FF6666'>{escape_japanese(answer_text)}</font>"
+                        left_answer = Paragraph(left_answer, question_style)
+                    else:
+                        left_answer = "________________"
                 else:
                     left_question = ""
                     left_answer = ""
@@ -1121,17 +1137,31 @@ def create_test_pdf(items, dataset_name, quiz_type):
                     # 回答→質問
                     question_text = (right_item.get('回答') or 
                                    right_item.get('answer') or '')
+                    answer_text = (right_item.get('質問') or 
+                                 right_item.get('question') or '')
                 else:
                     # 質問→回答（デフォルト）
                     question_text = (right_item.get('質問') or 
                                    right_item.get('question') or '')
+                    answer_text = (right_item.get('回答') or 
+                                 right_item.get('answer') or '')
                 
                 if question_text:
                     if font_available:
                         right_question = f"{right_item.get('番号', current_item_index + i + 26)}. {question_text}"
                     else:
                         right_question = escape_japanese(f"{right_item.get('番号', current_item_index + i + 26)}. {question_text}")
-                    right_answer = "________________"
+                    
+                    # 回答欄の処理
+                    if include_answers == 'red':
+                        # 薄い赤字で回答を表示（赤シートで隠しやすいように）
+                        if font_available:
+                            right_answer = f"<font color='#FF6666'>{answer_text}</font>"
+                        else:
+                            right_answer = f"<font color='#FF6666'>{escape_japanese(answer_text)}</font>"
+                        right_answer = Paragraph(right_answer, question_style)
+                    else:
+                        right_answer = "________________"
                 else:
                     right_question = ""
                     right_answer = ""
@@ -1149,7 +1179,7 @@ def create_test_pdf(items, dataset_name, quiz_type):
                 ])
         
         # 表を作成（4列：問題、解答欄、問題、解答欄）
-        table = Table(table_data, colWidths=[55*mm, 35*mm, 55*mm, 35*mm], rowHeights=[8*mm] * len(table_data))
+        table = Table(table_data, colWidths=[55*mm, 35*mm, 55*mm, 35*mm], rowHeights=[6*mm] * len(table_data))
         
         # 表のスタイル設定
         table.setStyle(TableStyle([
@@ -1159,20 +1189,101 @@ def create_test_pdf(items, dataset_name, quiz_type):
             ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
             ('FONTNAME', (0, 0), (-1, 0), 'Japanese' if font_available else 'Helvetica-Bold'),
             ('FONTSIZE', (0, 0), (-1, 0), 10),
-            ('BOTTOMPADDING', (0, 0), (-1, 0), 8),
+            ('BOTTOMPADDING', (0, 0), (-1, 0), 4),
             
             # データ行のスタイル
             ('FONTNAME', (0, 1), (-1, -1), 'Japanese' if font_available else 'Helvetica'),
             ('FONTSIZE', (0, 1), (-1, -1), 9),
             ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
             ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('LEFTPADDING', (0, 0), (-1, -1), 3),
-            ('RIGHTPADDING', (0, 0), (-1, -1), 3),
-            ('TOPPADDING', (0, 0), (-1, -1), 6),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('LEFTPADDING', (0, 0), (-1, -1), 2),
+            ('RIGHTPADDING', (0, 0), (-1, -1), 2),
+            ('TOPPADDING', (0, 0), (-1, -1), 3),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
         ]))
         
         story.append(table)
+        
+        # 回答を下部に含める場合は、回答セクションを追加
+        if include_answers == 'bottom':
+            # 回答セクション用のスペース
+            story.append(Spacer(1, 5*mm))
+            
+            # 回答セクションのタイトル
+            if font_available:
+                answer_title_text = "回答"
+            else:
+                answer_title_text = escape_japanese("回答")
+            
+            answer_title_style = ParagraphStyle(
+                'AnswerTitle',
+                parent=styles['Heading2'],
+                fontName='Japanese' if font_available else 'Helvetica-Bold',
+                fontSize=12,
+                spaceAfter=3
+            )
+            
+            story.append(Paragraph(answer_title_text, answer_title_style))
+            
+            # 回答データを作成（現在のページの問題に対応）
+            answer_data = []
+            answers_per_row = 5  # 1行に5個の回答を配置
+            
+            for i, item in enumerate(page_items):
+                # 回答テキストを取得
+                if quiz_type == 'answer_to_question':
+                    # 回答→質問の場合、質問が答え
+                    answer_text = (item.get('質問') or item.get('question') or '')
+                else:
+                    # 質問→回答の場合、回答が答え
+                    answer_text = (item.get('回答') or item.get('answer') or '')
+                
+                question_number = item.get('番号', current_item_index + i + 1)
+                
+                if font_available:
+                    answer_entry = f"{question_number}. {answer_text}"
+                else:
+                    answer_entry = escape_japanese(f"{question_number}. {answer_text}")
+                
+                answer_data.append(answer_entry)
+            
+            # 回答を表形式で配置（1行に複数個）
+            answer_table_data = []
+            answer_style = ParagraphStyle(
+                'AnswerStyle',
+                parent=styles['Normal'],
+                fontName='Japanese' if font_available else 'Helvetica',
+                fontSize=8,
+                spaceAfter=2
+            )
+            
+            for i in range(0, len(answer_data), answers_per_row):
+                row_data = []
+                for j in range(answers_per_row):
+                    if i + j < len(answer_data):
+                        # 薄い赤字で回答を表示
+                        if font_available:
+                            red_answer = f"<font color='#FF6666'>{answer_data[i + j]}</font>"
+                        else:
+                            red_answer = f"<font color='#FF6666'>{answer_data[i + j]}</font>"
+                        row_data.append(Paragraph(red_answer, answer_style))
+                    else:
+                        row_data.append("")
+                answer_table_data.append(row_data)
+            
+            if answer_table_data:
+                answer_table = Table(answer_table_data, colWidths=[38*mm] * answers_per_row)
+                answer_table.setStyle(TableStyle([
+                    ('FONTNAME', (0, 0), (-1, -1), 'Japanese' if font_available else 'Helvetica'),
+                    ('FONTSIZE', (0, 0), (-1, -1), 8),
+                    ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+                    ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 2),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 2),
+                    ('TOPPADDING', (0, 0), (-1, -1), 2),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+                ]))
+                story.append(answer_table)
         
         # 次のページの準備
         current_item_index += current_page_items
@@ -1188,7 +1299,24 @@ def create_test_pdf(items, dataset_name, quiz_type):
             question_text = (item.get('質問') or 
                            item.get('question') or '問題')
             story.append(Paragraph(f"{i}. {question_text} Answer: ___________", question_style))
-            story.append(Spacer(1, 3*mm))
+            story.append(Spacer(1, 1*mm))
+        
+        # フォールバック時も回答を含める
+        if include_answers == 'bottom':
+            story.append(Spacer(1, 5*mm))
+            story.append(Paragraph("回答", title_style))
+            for i, item in enumerate(items, 1):
+                if quiz_type == 'answer_to_question':
+                    answer_text = (item.get('質問') or item.get('question') or '')
+                else:
+                    answer_text = (item.get('回答') or item.get('answer') or '')
+                # 薄い赤字で回答を表示
+                red_answer = f"<font color='#FF6666'>{i}. {answer_text}</font>"
+                story.append(Paragraph(red_answer, question_style))
+        elif include_answers == 'red':
+            # 赤字で回答を表示する場合は既に問題文に含まれているのでここでは何もしない
+            pass
+        
         doc.build(story)
     
     buffer.seek(0)
