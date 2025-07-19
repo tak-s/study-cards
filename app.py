@@ -289,7 +289,12 @@ def get_dataset_stats(data_or_filename):
     total_attempts = 0
     total_correct = 0
     mastery_sum = 0.0
-    studied_problems = 0
+    
+    # 習熟度ベースの統計
+    mastered_problems = 0      # 習熟度80%以上（習得済み）
+    learning_problems = 0      # 習熟度60-79%（学習中）  
+    struggling_problems = 0    # 習熟度1-59%（要練習）
+    untouched_problems = 0     # 習熟度0%（未着手）
     
     for item in data:
         try:
@@ -301,22 +306,38 @@ def get_dataset_stats(data_or_filename):
             total_attempts += attempts
             mastery_sum += mastery_score
             
-            # 学習済みの問題をカウント（試行回数が1回以上）
-            if attempts > 0:
-                studied_problems += 1
+            # 習熟度に基づく分類
+            if mastery_score >= 0.8:
+                mastered_problems += 1    # 習得済み
+            elif mastery_score >= 0.6:
+                learning_problems += 1    # 学習中
+            elif mastery_score > 0.0:
+                struggling_problems += 1  # 要練習
+            else:
+                untouched_problems += 1   # 未着手
                 
         except (ValueError, TypeError):
+            untouched_problems += 1
             continue
     
     # 平均習熟度スコアを計算（0-100の範囲で表示）
     average_mastery = (mastery_sum / total_problems * 100) if total_problems > 0 else 0.0
+    
+    # 取り組み済み問題数（習熟度が0%を超える問題）
+    attempted_problems = total_problems - untouched_problems
     
     return {
         'total_problems': total_problems,
         'average_mastery': round(average_mastery, 1),
         'total_attempts': total_attempts,
         'total_correct': total_correct,
-        'studied_problems': studied_problems
+        'mastered_problems': mastered_problems,      # 習得済み（80%以上）
+        'learning_problems': learning_problems,      # 学習中（60-79%）
+        'struggling_problems': struggling_problems,  # 要練習（1-59%）
+        'untouched_problems': untouched_problems,    # 未着手（0%）
+        'attempted_problems': attempted_problems,    # 取り組み済み（0%を超える）
+        # 旧形式との互換性のため残す
+        'studied_problems': attempted_problems
     }
 
 def get_weak_problems(data, threshold=0.6):

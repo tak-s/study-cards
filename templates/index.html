@@ -53,7 +53,8 @@
                     </div>
                     <small class="text-muted">
                         {% if dataset.stats.total_attempts > 0 %}
-                            学習済み: {{ dataset.stats.studied_problems }}/{{ dataset.stats.total_problems }} 問
+                            習得済み: {{ dataset.stats.mastered_problems }}/{{ dataset.stats.total_problems }} 問 
+                            (学習中: {{ dataset.stats.learning_problems }}問、要練習: {{ dataset.stats.struggling_problems }}問)
                         {% else %}
                             未学習
                         {% endif %}
