@@ -922,7 +922,7 @@ def create_quiz(filename):
         return redirect(url_for('generate_quiz', filename=filename))
     
     try:
-        num_questions = int(request.form.get('num_questions', 50))
+        num_questions = int(request.form.get('num_questions', 40))
         quiz_type = request.form.get('quiz_type', 'question_to_answer')
         selection_method = request.form.get('selection_method', 'random')
         include_answers = request.form.get('include_answers', 'no')
@@ -1052,9 +1052,9 @@ def create_test_pdf(items, dataset_name, quiz_type, include_answers='no'):
     story.append(title_paragraph)
     story.append(Spacer(1, 3*mm))
     
-    # 全ての問題を処理（50問を超えた場合は複数ページ）
+    # 全ての問題を処理（40問を超えた場合は複数ページ）
     total_items = len(items)
-    items_per_page = 50  # 1ページあたり最大50問（25行×2列）
+    items_per_page = 40  # 1ページあたり最大40問（20行×2列）
     
     # ページごとに処理
     current_item_index = 0
@@ -1087,9 +1087,9 @@ def create_test_pdf(items, dataset_name, quiz_type, include_answers='no'):
         table_data.append(['問題', '解答欄', '問題', '解答欄'])
         
         # 25行のデータを作成
-        for i in range(25):
+        for i in range(20):
             left_item = page_items[i] if i < len(page_items) else None
-            right_item = page_items[i + 25] if i + 25 < len(page_items) else None
+            right_item = page_items[i + 20] if i + 20 < len(page_items) else None
             
             # 左側の問題
             if left_item:
@@ -1179,7 +1179,7 @@ def create_test_pdf(items, dataset_name, quiz_type, include_answers='no'):
                 ])
         
         # 表を作成（4列：問題、解答欄、問題、解答欄）
-        table = Table(table_data, colWidths=[55*mm, 35*mm, 55*mm, 35*mm], rowHeights=[6*mm] * len(table_data))
+        table = Table(table_data, colWidths=[55*mm, 35*mm, 55*mm, 35*mm], rowHeights=[8*mm] * len(table_data))
         
         # 表のスタイル設定
         table.setStyle(TableStyle([
