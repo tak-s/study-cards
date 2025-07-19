@@ -142,6 +142,82 @@
                         </div>
                     </div>
                     
+                    <!-- 問題選択モード -->
+                    <div class="mb-4">
+                        <label class="form-label">問題選択モード</label>
+                        <div class="row">
+                            <div class="col-12 mb-3">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <input type="radio" class="form-check-input" id="problem_normal" 
+                                               name="problem_mode" value="normal" checked>
+                                        <label class="form-check-label w-100" for="problem_normal">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <h6 class="mb-1">通常モード</h6>
+                                                    <small class="text-muted">指定した範囲から問題を選択</small>
+                                                </div>
+                                                <div class="d-flex align-items-center">
+                                                    <span class="badge bg-primary me-2">{{ total_items }}問</span>
+                                                    <i class="fas fa-list text-primary"></i>
+                                                </div>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-body">
+                                        <input type="radio" class="form-check-input" id="problem_weak" 
+                                               name="problem_mode" value="weak"
+                                               {% if mastery_distribution.weak == 0 %}disabled{% endif %}>
+                                        <label class="form-check-label w-100" for="problem_weak">
+                                            <div class="d-flex justify-content-between align-items-center">
+                                                <div>
+                                                    <h6 class="mb-1">弱点問題特化モード ⭐</h6>
+                                                    <small class="text-muted">習熟度60%未満の問題のみを対象</small>
+                                                    {% if mastery_distribution.weak == 0 %}
+                                                    <br><small class="text-warning">⚠ 弱点問題がありません</small>
+                                                    {% endif %}
+                                                </div>
+                                                <div class="d-flex align-items-center">
+                                                    <span class="badge bg-warning text-dark me-2">{{ mastery_distribution.weak }}問</span>
+                                                    <i class="fas fa-target text-warning"></i>
+                                                </div>
+                                            </div>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- 習熟度分布表示 -->
+                        <div class="mt-3">
+                            <small class="text-muted">習熟度分布:</small>
+                            <div class="progress" style="height: 25px;">
+                                {% set weak_percent = (mastery_distribution.weak / mastery_distribution.total * 100) if mastery_distribution.total > 0 else 0 %}
+                                {% set moderate_percent = (mastery_distribution.moderate / mastery_distribution.total * 100) if mastery_distribution.total > 0 else 0 %}
+                                {% set strong_percent = (mastery_distribution.strong / mastery_distribution.total * 100) if mastery_distribution.total > 0 else 0 %}
+                                
+                                <!-- css-lint-disable -->
+                                <div class="progress-bar bg-warning" role="progressbar" style="width: {{ weak_percent }}%"
+                                     title="弱点 (60%未満): {{ mastery_distribution.weak }}問">
+                                    {% if weak_percent > 15 %}弱点 {{ mastery_distribution.weak }}{% endif %}
+                                </div>
+                                <div class="progress-bar bg-info" role="progressbar" style="width: {{ moderate_percent }}%"
+                                     title="中程度 (60-80%): {{ mastery_distribution.moderate }}問">
+                                    {% if moderate_percent > 15 %}中級 {{ mastery_distribution.moderate }}{% endif %}
+                                </div>
+                                <div class="progress-bar bg-success" role="progressbar" style="width: {{ strong_percent }}%"
+                                     title="習得済み (80%以上): {{ mastery_distribution.strong }}問">
+                                    {% if strong_percent > 15 %}習得済み {{ mastery_distribution.strong }}{% endif %}
+                                </div>
+                                <!-- css-lint-enable -->
+                            </div>
+                        </div>
+                    </div>
+                    
                     <!-- 問題タイプ -->
                     <div class="mb-4">
                         <label class="form-label">問題タイプ</label>
@@ -244,6 +320,39 @@ document.addEventListener('DOMContentLoaded', function() {
         selectedCard.style.borderColor = '#0d6efd';
         selectedCard.style.backgroundColor = '#f8f9ff';
     });
+    
+    // 弱点問題モード制御
+    const problemNormalRadio = document.getElementById('problem_normal');
+    const problemWeakRadio = document.getElementById('problem_weak');
+    const rangeInputs = document.querySelectorAll('#range_start, #range_end');
+    
+    function toggleRangeInputs() {
+        const isWeakMode = problemWeakRadio && problemWeakRadio.checked;
+        rangeInputs.forEach(input => {
+            input.disabled = isWeakMode;
+            const formText = input.parentElement.querySelector('.form-text');
+            if (isWeakMode) {
+                input.style.backgroundColor = '#f8f9fa';
+                formText.textContent = '弱点問題モードでは範囲設定は無効です';
+                formText.style.color = '#6c757d';
+            } else {
+                input.style.backgroundColor = '';
+                if (input.id === 'range_start') {
+                    formText.textContent = '空欄の場合は最初から';
+                } else {
+                    formText.textContent = '空欄の場合は最後まで';
+                }
+                formText.style.color = '';
+            }
+        });
+    }
+    
+    // 問題モード変更時のイベントリスナー
+    if (problemNormalRadio) problemNormalRadio.addEventListener('change', toggleRangeInputs);
+    if (problemWeakRadio) problemWeakRadio.addEventListener('change', toggleRangeInputs);
+    
+    // 初期状態を設定
+    toggleRangeInputs();
     
     // 問題数の自動調整（既存のコードを流用）
     const numQuestionsInput = document.getElementById('num_questions');

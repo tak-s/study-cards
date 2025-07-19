@@ -318,6 +318,49 @@ def get_dataset_stats(data_or_filename):
         'studied_problems': studied_problems
     }
 
+def get_weak_problems(data, threshold=0.6):
+    """習熟度が閾値未満の問題を抽出"""
+    weak_problems = []
+    for item in data:
+        try:
+            mastery_score = float(item.get('習熟度スコア', 0.0) or 0.0)
+            if mastery_score < threshold:
+                weak_problems.append(item)
+        except (ValueError, TypeError):
+            # 習熟度スコアが不正な場合は弱点問題として扱う
+            weak_problems.append(item)
+    return weak_problems
+
+def get_mastery_distribution(data):
+    """習熟度分布を取得（UI表示用）"""
+    total_problems = len(data)
+    if total_problems == 0:
+        return {'weak': 0, 'moderate': 0, 'strong': 0, 'total': 0}
+    
+    weak_count = 0
+    moderate_count = 0
+    strong_count = 0
+    
+    for item in data:
+        try:
+            mastery_score = float(item.get('習熟度スコア', 0.0) or 0.0)
+            if mastery_score < 0.6:
+                weak_count += 1
+            elif mastery_score < 0.8:
+                moderate_count += 1
+            else:
+                strong_count += 1
+        except (ValueError, TypeError):
+            # 習熟度スコアが不正な場合は弱点問題として扱う
+            weak_count += 1
+    
+    return {
+        'weak': weak_count,
+        'moderate': moderate_count,
+        'strong': strong_count,
+        'total': total_problems
+    }
+
 def load_dataset(filename):
     """CSVファイルからデータセットを読み込み（習熟度データ対応）"""
     filepath = os.path.join(DATASETS_DIR, filename)
@@ -621,10 +664,14 @@ def online_test_setup(filename):
     # 既存の統計データがあれば取得
     total_items = len(data)
     
+    # 習熟度分布を取得
+    mastery_dist = get_mastery_distribution(data)
+    
     return render_template('online_test_setup.html',
                          filename=filename,
                          dataset_name=filename[:-4],
-                         total_items=total_items)
+                         total_items=total_items,
+                         mastery_distribution=mastery_dist)
 
 @app.route('/start_online_test/<filename>', methods=['POST'])
 def start_online_test(filename):
@@ -639,33 +686,45 @@ def start_online_test(filename):
         num_questions = int(request.form.get('num_questions', 10))
         quiz_type = request.form.get('quiz_type', 'question_to_answer')
         selection_method = request.form.get('selection_method', 'random')
+        problem_mode = request.form.get('problem_mode', 'normal')
         
-        # 範囲設定の取得
-        range_start = request.form.get('range_start')
-        range_end = request.form.get('range_end')
-        
-        # 範囲の設定（空欄の場合はデフォルト値）
-        start_index = int(range_start) - 1 if range_start else 0  # 1-based to 0-based
-        end_index = int(range_end) - 1 if range_end else len(data) - 1  # 1-based to 0-based
-        
-        # 範囲の妥当性チェック
-        if start_index < 0 or start_index >= len(data):
-            set_flash_message('開始位置が無効です。', 'error')
-            return redirect(url_for('online_test_setup', filename=filename))
-        
-        if end_index < 0 or end_index >= len(data):
-            set_flash_message('終了位置が無効です。', 'error')
-            return redirect(url_for('online_test_setup', filename=filename))
-        
-        if start_index > end_index:
-            set_flash_message('開始位置は終了位置以下にしてください。', 'error')
-            return redirect(url_for('online_test_setup', filename=filename))
-        
-        # 指定範囲のデータを取得
-        range_data = data[start_index:end_index + 1]
-        
-        # 問題数の調整（範囲データのサイズまで）
-        num_questions = min(max(1, num_questions), len(range_data))
+        # 弱点問題特化モードの処理
+        if problem_mode == 'weak':
+            # 弱点問題のみを対象とする
+            weak_data = get_weak_problems(data, threshold=0.6)
+            if not weak_data:
+                set_flash_message('弱点問題が見つかりません。通常モードをお試しください。', 'warning')
+                return redirect(url_for('online_test_setup', filename=filename))
+            range_data = weak_data
+            # 弱点問題モードでは範囲指定は無効
+            num_questions = min(max(1, num_questions), len(range_data))
+        else:
+            # 通常モード：範囲設定の取得
+            range_start = request.form.get('range_start')
+            range_end = request.form.get('range_end')
+            
+            # 範囲の設定（空欄の場合はデフォルト値）
+            start_index = int(range_start) - 1 if range_start else 0  # 1-based to 0-based
+            end_index = int(range_end) - 1 if range_end else len(data) - 1  # 1-based to 0-based
+            
+            # 範囲の妥当性チェック
+            if start_index < 0 or start_index >= len(data):
+                set_flash_message('開始位置が無効です。', 'error')
+                return redirect(url_for('online_test_setup', filename=filename))
+            
+            if end_index < 0 or end_index >= len(data):
+                set_flash_message('終了位置が無効です。', 'error')
+                return redirect(url_for('online_test_setup', filename=filename))
+            
+            if start_index > end_index:
+                set_flash_message('開始位置は終了位置以下にしてください。', 'error')
+                return redirect(url_for('online_test_setup', filename=filename))
+            
+            # 指定範囲のデータを取得
+            range_data = data[start_index:end_index + 1]
+            
+            # 問題数の調整（範囲データのサイズまで）
+            num_questions = min(max(1, num_questions), len(range_data))
         
         # 問題の選択
         if selection_method == 'sequential':
