@@ -25,15 +25,35 @@
             background-color: #198754;
             border-color: #198754;
         }
+        .btn-info {
+            background-color: #b19cd9;
+            border-color: #b19cd9;
+        }
+        .btn-info:hover {
+            background-color: #9b59b6;
+            border-color: #9b59b6;
+        }
         .btn-danger {
             background-color: #dc3545;
             border-color: #dc3545;
         }
         .dataset-card {
-            transition: transform 0.2s;
+            transition: transform 0.2s, box-shadow 0.2s;
         }
         .dataset-card:hover {
             transform: translateY(-2px);
+        }
+        .progress {
+            background-color: #e9ecef;
+        }
+        .card-header.bg-primary {
+            background: linear-gradient(45deg, #0d6efd, #0056b3) !important;
+        }
+        .card-header.bg-dark {
+            background: linear-gradient(45deg, #343a40, #212529) !important;
+        }
+        .border-end {
+            border-right: 1px solid #dee2e6 !important;
         }
     </style>
 </head>
@@ -47,20 +67,20 @@
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav me-auto">
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="fas fa-database"></i> データセット一覧
+                        </a>
+                        <ul class="dropdown-menu" aria-labelledby="navbarDropdown" id="dataset-dropdown">
+                            <li><a class="dropdown-item text-muted"><i class="fas fa-spinner fa-spin"></i> 読み込み中...</a></li>
+                        </ul>
+                    </li>
+                </ul>
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('index') }}">
-                            <i class="fas fa-home"></i> ホーム
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('create_dataset') }}">
-                            <i class="fas fa-plus"></i> 新しいデータセット
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('import_dataset_page') }}">
-                            <i class="fas fa-upload"></i> インポート
+                            <i class="fas fa-tachometer-alt"></i> ダッシュボード
                         </a>
                     </li>
                 </ul>
@@ -85,6 +105,35 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // データセット一覧をナビゲーションメニューに動的読み込み
+        document.addEventListener('DOMContentLoaded', function() {
+            const dropdown = document.getElementById('dataset-dropdown');
+            if (dropdown) {
+                fetch('/api/datasets')
+                    .then(response => response.json())
+                    .then(datasets => {
+                        dropdown.innerHTML = '';
+                        if (datasets.length === 0) {
+                            dropdown.innerHTML = '<li><a class="dropdown-item text-muted"><i class="fas fa-info-circle"></i> データセットがありません</a></li>';
+                        } else {
+                            datasets.forEach(dataset => {
+                                const item = document.createElement('li');
+                                item.innerHTML = `<a class="dropdown-item" href="/edit_dataset/${dataset.filename}">
+                                    <i class="fas fa-database me-2"></i>${dataset.name}
+                                    <small class="text-muted ms-2">(${dataset.stats.total_problems}問)</small>
+                                </a>`;
+                                dropdown.appendChild(item);
+                            });
+                        }
+                    })
+                    .catch(error => {
+                        console.error('データセット一覧の取得に失敗しました:', error);
+                        dropdown.innerHTML = '<li><a class="dropdown-item text-danger"><i class="fas fa-exclamation-triangle"></i> 読み込みエラー</a></li>';
+                    });
+            }
+        });
+    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

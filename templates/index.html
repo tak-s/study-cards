@@ -1,58 +1,90 @@
 {% extends "base.html" %}
 
-{% block title %}ホーム - StudyCards{% endblock %}
+{% block title %}ダッシュボード - StudyCards{% endblock %}
 
 {% block content %}
 <div class="row">
     <div class="col-12">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1><i class="fas fa-book-open"></i> データセット一覧</h1>
-            <div>
-                <a href="{{ url_for('import_dataset_page') }}" class="btn btn-info me-2">
-                    <i class="fas fa-upload"></i> インポート
-                </a>
-                <a href="{{ url_for('create_dataset') }}" class="btn btn-primary">
-                    <i class="fas fa-plus"></i> 新しいデータセット
-                </a>
-            </div>
-        </div>
+        <h1><i class="fas fa-tachometer-alt"></i> 学習ダッシュボード</h1>
+        <p class="text-muted mb-4">各データセットの学習状況を確認して、学習を開始しましょう。</p>
     </div>
 </div>
 
 {% if datasets %}
 <div class="row">
     {% for dataset in datasets %}
-    <div class="col-md-6 col-lg-4 mb-4">
-        <div class="card dataset-card h-100">
-            <div class="card-body">
-                <h5 class="card-title">
-                    <i class="fas fa-database"></i> {{ dataset.name }}
+    <div class="col-md-6 col-xl-4 mb-4">
+        <div class="card dataset-card h-100 shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-database me-2"></i>{{ dataset.name }}
                 </h5>
+            </div>
+            <div class="card-body">
+                <!-- 統計情報 -->
+                <div class="row text-center mb-3">
+                    <div class="col-6">
+                        <div class="border-end">
+                            <h4 class="text-primary mb-0">{{ dataset.stats.total_problems }}</h4>
+                            <small class="text-muted">問題数</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <h4 class="mb-0 {% if dataset.stats.average_mastery >= 80 %}text-success{% elif dataset.stats.average_mastery >= 60 %}text-warning{% else %}text-danger{% endif %}">
+                            {{ dataset.stats.average_mastery }}%
+                        </h4>
+                        <small class="text-muted">習熟度</small>
+                    </div>
+                </div>
+                
+                <!-- 習熟度プログレスバー -->
+                <div class="mb-3">
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar 
+                            {% if dataset.stats.average_mastery >= 80 %}bg-success
+                            {% elif dataset.stats.average_mastery >= 60 %}bg-warning
+                            {% else %}bg-danger{% endif %}" 
+                            role="progressbar" 
+                            data-width="{{ dataset.stats.average_mastery }}"
+                            aria-valuenow="{{ dataset.stats.average_mastery }}" 
+                            aria-valuemin="0" 
+                            aria-valuemax="100">
+                        </div>
+                    </div>
+                    <small class="text-muted">
+                        {% if dataset.stats.total_attempts > 0 %}
+                            学習済み: {{ dataset.stats.studied_problems }}/{{ dataset.stats.total_problems }} 問
+                        {% else %}
+                            未学習
+                        {% endif %}
+                    </small>
+                </div>
+                
+                <!-- アクションボタン -->
                 <div class="d-grid gap-2">
-                    <a href="{{ url_for('edit_dataset', filename=dataset.filename) }}" 
-                       class="btn btn-outline-primary">
-                        <i class="fas fa-edit"></i> 詳細
-                    </a>
                     <a href="{{ url_for('online_test_setup', filename=dataset.filename) }}" 
-                       class="btn btn-primary">
-                        <i class="fas fa-laptop"></i> オンラインテスト
-                    </a>
-                    <a href="{{ url_for('input_results', filename=dataset.filename) }}" 
-                       class="btn btn-warning">
-                        <i class="fas fa-pencil-alt"></i> 結果入力
+                       class="btn btn-info">
+                        <i class="fas fa-laptop me-2"></i>オンラインテスト
                     </a>
                     <a href="{{ url_for('generate_quiz', filename=dataset.filename) }}" 
                        class="btn btn-success">
-                        <i class="fas fa-file-pdf"></i> PDF作成
+                        <i class="fas fa-file-pdf me-2"></i>テスト作成 (PDF)
+                    </a>
+                </div>
+            </div>
+            <div class="card-footer bg-light">
+                <div class="d-flex justify-content-between">
+                    <a href="{{ url_for('edit_dataset', filename=dataset.filename) }}" 
+                       class="btn btn-outline-secondary btn-sm">
+                        <i class="fas fa-edit me-1"></i>編集
+                    </a>
+                    <a href="{{ url_for('input_results', filename=dataset.filename) }}" 
+                       class="btn btn-outline-warning btn-sm">
+                        <i class="fas fa-pencil-alt me-1"></i>結果入力
                     </a>
                     <a href="{{ url_for('export_dataset', filename=dataset.filename) }}" 
-                       class="btn btn-info btn-sm">
-                        <i class="fas fa-download"></i> エクスポート
-                    </a>
-                    <a href="{{ url_for('delete_dataset', filename=dataset.filename) }}" 
-                       class="btn btn-danger btn-sm"
-                       onclick="return confirm('本当に削除しますか？')">
-                        <i class="fas fa-trash"></i> 削除
+                       class="btn btn-outline-info btn-sm">
+                        <i class="fas fa-download me-1"></i>出力
                     </a>
                 </div>
             </div>
@@ -60,54 +92,79 @@
     </div>
     {% endfor %}
 </div>
+
+<!-- データセット管理 -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body text-center">
+                <h5 class="card-title"><i class="fas fa-database me-2"></i>データセット管理</h5>
+                <div class="d-flex justify-content-center gap-3 flex-wrap">
+                    <a href="{{ url_for('create_dataset') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-plus me-2"></i>新しいデータセット作成
+                    </a>
+                    <a href="{{ url_for('import_dataset_page') }}" class="btn btn-outline-info">
+                        <i class="fas fa-upload me-2"></i>CSVファイルをアップロード
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 {% else %}
 <div class="row">
     <div class="col-12">
-        <div class="card">
-            <div class="card-body text-center py-5">
+        <div class="card text-center">
+            <div class="card-body py-5">
                 <i class="fas fa-database fa-3x text-muted mb-3"></i>
                 <h4 class="text-muted">データセットがありません</h4>
-                <p class="text-muted">新しいデータセットを作成して学習を始めましょう！</p>
-                <a href="{{ url_for('create_dataset') }}" class="btn btn-primary">
-                    <i class="fas fa-plus"></i> 最初のデータセットを作成
-                </a>
+                <p class="text-muted mb-4">学習を開始するには、まずデータセットを作成してください。</p>
+                <div class="d-flex justify-content-center gap-3">
+                    <a href="{{ url_for('create_dataset') }}" class="btn btn-primary">
+                        <i class="fas fa-plus me-2"></i>新しいデータセットを作成
+                    </a>
+                    <a href="{{ url_for('import_dataset_page') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-upload me-2"></i>CSVファイルをアップロード
+                    </a>
+                </div>
             </div>
         </div>
     </div>
 </div>
 {% endif %}
 
-<div class="row mt-5">
-    <div class="col-12">
-        <div class="card">
-            <div class="card-header">
-                <h5><i class="fas fa-info-circle"></i> 使い方</h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md col-sm-6">
-                        <h6><i class="fas fa-plus-circle text-primary"></i> データセット作成</h6>
-                        <p class="small">漢字学習や英単語学習のためのデータセットを作成します。</p>
-                    </div>
-                    <div class="col-md col-sm-6">
-                        <h6><i class="fas fa-edit text-success"></i> データ編集</h6>
-                        <p class="small">作成したデータセットに単語や漢字を追加・編集できます。</p>
-                    </div>
-                    <div class="col-md col-sm-6">
-                        <h6><i class="fas fa-pencil-alt text-warning"></i> テスト結果入力</h6>
-                        <p class="small">印刷したテストの結果を入力して習熟度データを管理します。</p>
-                    </div>
-                    <div class="col-md col-sm-6">
-                        <h6><i class="fas fa-exchange-alt text-info"></i> インポート/エクスポート</h6>
-                        <p class="small">習熟度データを含むCSVファイルでの管理が可能です。</p>
-                    </div>
-                    <div class="col-md col-sm-6">
-                        <h6><i class="fas fa-file-pdf text-danger"></i> テスト作成</h6>
-                        <p class="small">データセットからテストをランダム生成してPDFで印刷できます。</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // プログレスバーの幅を設定
+    const progressBars = document.querySelectorAll('.progress-bar[data-width]');
+    progressBars.forEach(function(bar) {
+        const width = bar.getAttribute('data-width');
+        bar.style.width = width + '%';
+    });
+    
+    // ツールチップの初期化
+    var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+    var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+        return new bootstrap.Tooltip(tooltipTriggerEl);
+    });
+    
+    // カードのホバーエフェクト強化
+    const cards = document.querySelectorAll('.dataset-card');
+    cards.forEach(card => {
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-5px)';
+            this.style.boxShadow = '0 8px 16px rgba(0,0,0,0.15)';
+        });
+        
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+            this.style.boxShadow = '';
+        });
+    });
+});
+</script>
 {% endblock %}

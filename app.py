@@ -250,18 +250,73 @@ def ensure_datasets_dir():
         os.makedirs(DATASETS_DIR)
 
 def get_datasets():
-    """利用可能なデータセット一覧を取得"""
+    """利用可能なデータセット一覧を取得（統計情報付き）"""
     ensure_datasets_dir()
     datasets = []
     for filename in os.listdir(DATASETS_DIR):
         if filename.endswith('.csv'):
             name = filename[:-4]  # .csvを除去
+            stats = get_dataset_stats(filename)
             datasets.append({
                 'name': name,
                 'filename': filename,
-                'path': os.path.join(DATASETS_DIR, filename)
+                'path': os.path.join(DATASETS_DIR, filename),
+                'stats': stats
             })
     return datasets
+
+def get_dataset_stats(data_or_filename):
+    """データセットの統計情報を取得（習熟度スコアベース）"""
+    # データまたはファイル名を受け取り、データを取得
+    if isinstance(data_or_filename, str):
+        # ファイル名が渡された場合
+        data = load_dataset(data_or_filename)
+    else:
+        # データリストが直接渡された場合
+        data = data_or_filename
+    
+    if not data:
+        return {
+            'total_problems': 0,
+            'average_mastery': 0.0,
+            'total_attempts': 0,
+            'total_correct': 0,
+            'studied_problems': 0
+        }
+    
+    total_problems = len(data)
+    total_attempts = 0
+    total_correct = 0
+    mastery_sum = 0.0
+    studied_problems = 0
+    
+    for item in data:
+        try:
+            correct = int(item.get('正解数', 0) or 0)
+            attempts = int(item.get('総試行回数', 0) or 0)
+            mastery_score = float(item.get('習熟度スコア', 0.0) or 0.0)
+            
+            total_correct += correct
+            total_attempts += attempts
+            mastery_sum += mastery_score
+            
+            # 学習済みの問題をカウント（試行回数が1回以上）
+            if attempts > 0:
+                studied_problems += 1
+                
+        except (ValueError, TypeError):
+            continue
+    
+    # 平均習熟度スコアを計算（0-100の範囲で表示）
+    average_mastery = (mastery_sum / total_problems * 100) if total_problems > 0 else 0.0
+    
+    return {
+        'total_problems': total_problems,
+        'average_mastery': round(average_mastery, 1),
+        'total_attempts': total_attempts,
+        'total_correct': total_correct,
+        'studied_problems': studied_problems
+    }
 
 def load_dataset(filename):
     """CSVファイルからデータセットを読み込み（習熟度データ対応）"""
@@ -384,10 +439,16 @@ def save_dataset(filename, data, fieldnames=None):
 
 @app.route('/')
 def index():
-    """メインページ"""
+    """メインダッシュボードページ"""
     datasets = get_datasets()
     message, message_type = get_message_and_type(request)
     return render_template('index.html', datasets=datasets, message=message, message_type=message_type)
+
+@app.route('/api/datasets')
+def api_datasets():
+    """データセット一覧API（AJAX用）"""
+    datasets = get_datasets()
+    return jsonify(datasets)
 
 @app.route('/create_dataset')
 def create_dataset():
@@ -428,6 +489,9 @@ def edit_dataset(filename):
     data = load_dataset(filename)
     dataset_name = filename[:-4]  # .csvを除去
     
+    # 統計情報を取得
+    stats = get_dataset_stats(data)
+    
     # 拡張フォーマット: 番号,質問,回答,正解数,総試行回数,習熟度スコア
     fieldnames = ['番号', '質問', '回答', '正解数', '総試行回数', '習熟度スコア']
     
@@ -437,6 +501,7 @@ def edit_dataset(filename):
                          dataset_name=dataset_name,
                          filename=filename,
                          data=data,
+                         stats=stats,
                          fieldnames=fieldnames,
                          message=message,
                          message_type=message_type)
