@@ -7,11 +7,6 @@
     <div class="col-12">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h1><i class="fas fa-laptop"></i> {{ dataset_name }} オンラインテスト設定</h1>
-            <div>
-                <a href="{{ url_for('edit_dataset', filename=filename) }}" class="btn btn-secondary">
-                    <i class="fas fa-arrow-left"></i> 戻る
-                </a>
-            </div>
         </div>
     </div>
 </div>
@@ -30,39 +25,6 @@
             </div>
         </div>
         {% else %}
-        
-        <!-- テスト形式選択 -->
-        <div class="card mb-4">
-            <div class="card-header">
-                <h5><i class="fas fa-check-circle"></i> テスト形式選択</h5>
-            </div>
-            <div class="card-body">
-                <div class="row">
-                    <div class="col-md-6 mb-3">
-                        <div class="card h-100" style="cursor: pointer;" onclick="selectTestType('pdf')">
-                            <div class="card-body text-center">
-                                <i class="fas fa-file-pdf fa-3x text-danger mb-3"></i>
-                                <h5>PDF印刷テスト</h5>
-                                <p class="text-muted">印刷用のPDFを生成</p>
-                                <a href="{{ url_for('generate_quiz', filename=filename) }}" class="btn btn-outline-danger">
-                                    PDF設定へ
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-6 mb-3">
-                        <div class="card h-100 border-primary" style="background-color: #f8f9ff;">
-                            <div class="card-body text-center">
-                                <i class="fas fa-laptop fa-3x text-primary mb-3"></i>
-                                <h5>オンラインテスト</h5>
-                                <p class="text-muted">ブラウザで直接実行</p>
-                                <div class="badge bg-success mb-2">選択中</div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
         
         <!-- オンラインテスト設定 -->
         <div class="card">
@@ -283,6 +245,13 @@
                     <li><strong>結果レポート:</strong> テスト終了後に詳細な結果を表示</li>
                 </ul>
             </div>
+        </div>
+        
+        <!-- ホームボタン -->
+        <div class="mt-4 d-grid">
+            <a href="{{ url_for('index') }}" class="btn btn-secondary btn-lg">
+                <i class="fas fa-home"></i> ホーム
+            </a>
         </div>
         
         {% endif %}

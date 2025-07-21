@@ -264,6 +264,23 @@ def get_datasets():
                 'path': os.path.join(DATASETS_DIR, filename),
                 'stats': stats
             })
+    
+    # 日本語対応の名前順でソート
+    import locale
+    try:
+        # 日本語ロケールを設定（利用可能な場合）
+        locale.setlocale(locale.LC_ALL, 'ja_JP.UTF-8')
+    except locale.Error:
+        try:
+            # フォールバック: C.UTF-8ロケール
+            locale.setlocale(locale.LC_ALL, 'C.UTF-8')
+        except locale.Error:
+            # フォールバック: デフォルトロケール
+            pass
+    
+    # 名前でソート（日本語対応）
+    datasets.sort(key=lambda x: locale.strxfrm(x['name']))
+    
     return datasets
 
 def get_dataset_stats(data_or_filename):

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}ダッシュボード - StudyCards{% endblock %}
+{% block title %}ホーム - StudyCards{% endblock %}
 
 {% block content %}
 <div class="row">
@@ -95,7 +95,7 @@
                     </a>
                     <a href="{{ url_for('export_dataset', filename=dataset.filename) }}" 
                        class="btn btn-outline-info btn-sm">
-                        <i class="fas fa-download me-1"></i>出力
+                        <i class="fas fa-download me-1"></i>ダウンロード
                     </a>
                 </div>
             </div>
@@ -112,7 +112,7 @@
                 <h5 class="card-title"><i class="fas fa-database me-2"></i>データセット管理</h5>
                 <div class="d-flex justify-content-center gap-3 flex-wrap">
                     <a href="{{ url_for('create_dataset') }}" class="btn btn-outline-primary">
-                        <i class="fas fa-plus me-2"></i>新しいデータセット作成
+                        <i class="fas fa-plus me-2"></i>新規作成
                     </a>
                     <a href="{{ url_for('import_dataset_page') }}" class="btn btn-outline-info">
                         <i class="fas fa-upload me-2"></i>CSVファイルをアップロード
@@ -133,7 +133,7 @@
                 <p class="text-muted mb-4">学習を開始するには、まずデータセットを作成してください。</p>
                 <div class="d-flex justify-content-center gap-3">
                     <a href="{{ url_for('create_dataset') }}" class="btn btn-primary">
-                        <i class="fas fa-plus me-2"></i>新しいデータセットを作成
+                        <i class="fas fa-plus me-2"></i>新規作成
                     </a>
                     <a href="{{ url_for('import_dataset_page') }}" class="btn btn-outline-primary">
                         <i class="fas fa-upload me-2"></i>CSVファイルをアップロード

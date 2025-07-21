@@ -86,7 +86,7 @@
             <div class="card-footer">
                 <div class="d-flex justify-content-between">
                     <a href="{{ url_for('index') }}" class="btn btn-secondary">
-                        <i class="fas fa-arrow-left"></i> ホームに戻る
+                        <i class="fas fa-home"></i> ホーム
                     </a>
                     <button type="submit" class="btn btn-primary">
                         <i class="fas fa-save"></i> 結果を保存
@@ -95,25 +95,6 @@
             </div>
         </div>
     </form>
-
-    <!-- PDF生成リンク -->
-    <div class="row mt-4">
-        <div class="col">
-            <div class="card">
-                <div class="card-body">
-                    <h6 class="card-title">
-                        <i class="fas fa-file-pdf"></i> テスト用PDF作成
-                    </h6>
-                    <p class="card-text">
-                        印刷用のテストPDFを生成できます。
-                    </p>
-                    <a href="{{ url_for('generate_quiz', filename=filename) }}" class="btn btn-outline-primary">
-                        <i class="fas fa-file-pdf"></i> テスト作成ページへ
-                    </a>
-                </div>
-            </div>
-        </div>
-    </div>
 </div>
 
 <script>
