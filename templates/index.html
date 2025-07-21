@@ -74,10 +74,12 @@
                     <a href="{{ url_for('online_test_setup', filename=dataset.filename) }}" 
                        class="btn btn-info">
                         <i class="fas fa-laptop me-2"></i>オンラインテスト
+                        <small class="d-block" style="font-size: 0.75em; opacity: 0.8;">お好みの設定でテストを実施</small>
                     </a>
                     <a href="{{ url_for('generate_quiz', filename=dataset.filename) }}" 
                        class="btn btn-success">
                         <i class="fas fa-file-pdf me-2"></i>テスト作成 (PDF)
+                        <small class="d-block" style="font-size: 0.75em; opacity: 0.8;">お好みの設定でテストを出力</small>
                     </a>
                 </div>
             </div>
