@@ -1833,5 +1833,26 @@ def cleanup_on_request():
         cleanup_expired_messages()
 
 if __name__ == '__main__':
+    import argparse
+    
+    # コマンドライン引数の解析
+    parser = argparse.ArgumentParser(description='StudyCards Webアプリケーション')
+    parser.add_argument('--port', '-p', type=int, default=5000, 
+                       help='サーバーのポート番号 (デフォルト: 5000)')
+    parser.add_argument('--host', default='0.0.0.0', 
+                       help='サーバーのホストアドレス (デフォルト: 0.0.0.0)')
+    parser.add_argument('--debug', action='store_true', 
+                       help='デバッグモードで実行')
+    
+    args = parser.parse_args()
+    
     ensure_datasets_dir()
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    
+    print(f"StudyCards サーバーを開始しています...")
+    print(f"ホスト: {args.host}")
+    print(f"ポート: {args.port}")
+    print(f"デバッグモード: {args.debug}")
+    print(f"アクセスURL: http://localhost:{args.port}")
+    print("停止するには Ctrl+C を押してください")
+    
+    app.run(debug=args.debug, host=args.host, port=args.port)

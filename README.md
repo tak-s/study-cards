@@ -137,6 +137,71 @@ python app.py
 http://localhost:5000
 ```
 
+## 🔧 デーモン起動（バックグラウンド実行）
+
+本番環境やサーバーでの運用には、デーモンモードでの起動が可能です。
+
+### デーモンコマンド
+
+```bash
+# アプリケーションをバックグラウンドで開始
+./daemon.sh start
+
+# 実行状態の確認
+./daemon.sh status
+
+# アプリケーションの停止
+./daemon.sh stop
+
+# アプリケーションの再起動
+./daemon.sh restart
+
+# ログの確認
+./daemon.sh logs
+
+# ヘルプ表示
+./daemon.sh help
+```
+
+### デーモンの特徴
+
+- **バックグラウンド実行**: ターミナルを閉じてもアプリケーションが継続動作
+- **プロセス管理**: PIDファイルによる安全なプロセス管理
+- **ログ管理**: 標準出力とエラーログを自動記録
+- **状態監視**: メモリ使用量、CPU使用率、稼働時間の表示
+- **安全な停止**: 正常終了と強制終了の両方に対応
+- **自動チェック**: 仮想環境や依存関係の存在確認
+
+### ログファイル
+
+- **標準ログ**: `studycards.log` - アプリケーションの動作ログ
+- **エラーログ**: `studycards_error.log` - エラーとデバッグ情報
+
+### 使用例
+
+```bash
+# サーバー起動
+./daemon.sh start
+# [INFO] StudyCards アプリケーションを開始しています...
+# [SUCCESS] アプリケーションが開始されました (PID: 12345)
+# [INFO] ログファイル: <APP_DIR>/studycards.log
+# [INFO] エラーログ: <APP_DIR>/studycards_error.log
+# [INFO] アクセスURL: http://localhost:5000
+
+# 状態確認
+./daemon.sh status
+# [SUCCESS] StudyCards アプリケーションは実行中です (PID: 12345)
+# [INFO] メモリ使用量: 45.2 MB
+# [INFO] CPU使用率: 1.2%
+# [INFO] 起動時間: 02:15
+# [INFO] ポート5000でリスニング中
+# [INFO] アクセスURL: http://localhost:5000
+
+# ログ確認
+./daemon.sh logs
+# → 最新のアプリケーションログとエラーログを表示
+```
+
 ## 📚 使い方
 
 ### 1. データセットの作成
@@ -200,6 +265,7 @@ http://localhost:5000
 ```
 study-cards/
 ├── app.py                      # メインアプリケーション
+├── daemon.sh                   # デーモン起動・制御スクリプト
 ├── requirements.txt            # 本番用依存関係
 ├── requirements-dev.txt        # 開発用依存関係（flake8、pip-audit等）
 ├── README.md                   # このファイル

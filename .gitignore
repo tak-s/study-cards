@@ -144,6 +144,7 @@ fonts/
 # 一時ファイル
 *.tmp
 *.temp
+*.pid
 
 # ログファイル
 *.log

@@ -66,6 +66,51 @@ setup.bat
    http://localhost:5000
    ```
 
+## デーモン起動（本番環境向け）
+
+本番環境やサーバー運用では、デーモンモードでの起動を推奨します。
+
+### デーモン起動手順
+
+1. **セットアップ完了後、デーモンスクリプトに実行権限を付与**
+   ```bash
+   chmod +x daemon.sh
+   ```
+
+2. **デーモンとして起動**
+   ```bash
+   ./daemon.sh start
+   ```
+
+3. **状態確認**
+   ```bash
+   ./daemon.sh status
+   ```
+
+### デーモンコマンド一覧
+
+```bash
+./daemon.sh start    # アプリケーション開始
+./daemon.sh stop     # アプリケーション停止
+./daemon.sh restart  # アプリケーション再起動
+./daemon.sh status   # 実行状態確認
+./daemon.sh logs     # ログ表示
+./daemon.sh help     # ヘルプ表示
+```
+
+### ログファイルの場所
+
+- **アプリケーションログ**: `studycards.log`
+- **エラーログ**: `studycards_error.log`
+
+### デーモンの利点
+
+- ターミナルを閉じてもアプリケーションが継続動作
+- PIDファイルによる安全なプロセス管理
+- 自動ログ記録
+- システムリソース監視機能
+- 安全な停止・再起動機能
+
 ## トラブルシューティング
 
 ### よくある問題
@@ -90,6 +135,23 @@ sudo apt-get install fonts-dejavu-core fonts-noto-cjk
 # CentOS/RHEL
 sudo yum install dejavu-sans-fonts google-noto-sans-cjk-fonts
 ```
+
+**デーモン起動の問題:**
+```bash
+# 権限エラーの場合
+chmod +x daemon.sh
+
+# プロセスが残っている場合
+./daemon.sh stop
+./daemon.sh start
+
+# ログでエラー確認
+./daemon.sh logs
+```
+
+**デーモンのポート競合:**
+- `app.py` の最後の行でポート番号を変更後、デーモンを再起動
+- 例: `app.run(debug=True, host='0.0.0.0', port=5001)`
 
 ## 開発用依存関係（開発者向け）
 
