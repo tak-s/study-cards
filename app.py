@@ -173,7 +173,10 @@ def get_dataset_type(filename):
     return 'unified'
 
 def calculate_proficiency_score(correct_count, total_attempts):
-    """習熟度スコアを計算（0.0-1.0）"""
+    """
+    習熟度スコア計算（シンプル正解率）
+    正解数 / 総試行回数 の単純計算
+    """
     if total_attempts == 0:
         return 0.0
     return round(correct_count / total_attempts, 3)
@@ -307,11 +310,10 @@ def get_dataset_stats(data_or_filename):
     total_correct = 0
     mastery_sum = 0.0
     
-    # 習熟度ベースの統計
-    mastered_problems = 0      # 習熟度80%以上（習得済み）
-    learning_problems = 0      # 習熟度60-79%（学習中）  
-    struggling_problems = 0    # 習熟度1-59%（要練習）
-    untouched_problems = 0     # 習熟度0%（未着手）
+    # 新しい3分類システム
+    mastered_problems = 0      # 習得済み（3回以上かつ66%以上）
+    learning_problems = 0      # 学習中（1-2回試行 または 3回以上で66%未満）
+    untouched_problems = 0     # 未着手（0回試行）
     
     for item in data:
         try:
@@ -323,15 +325,15 @@ def get_dataset_stats(data_or_filename):
             total_attempts += attempts
             mastery_sum += mastery_score
             
-            # 習熟度に基づく分類
-            if mastery_score >= 0.8:
-                mastered_problems += 1    # 習得済み
-            elif mastery_score >= 0.6:
-                learning_problems += 1    # 学習中
-            elif mastery_score > 0.0:
-                struggling_problems += 1  # 要練習
-            else:
+            # 新しい分類ロジック
+            if attempts == 0:
                 untouched_problems += 1   # 未着手
+            elif attempts <= 2:
+                learning_problems += 1    # 学習中（1-2回試行）
+            elif mastery_score >= 0.66:  # 3回以上かつ66%以上
+                mastered_problems += 1    # 習得済み
+            else:
+                learning_problems += 1    # 学習中（3回以上だが66%未満）
                 
         except (ValueError, TypeError):
             untouched_problems += 1
@@ -348,14 +350,136 @@ def get_dataset_stats(data_or_filename):
         'average_mastery': round(average_mastery, 1),
         'total_attempts': total_attempts,
         'total_correct': total_correct,
-        'mastered_problems': mastered_problems,      # 習得済み（80%以上）
-        'learning_problems': learning_problems,      # 学習中（60-79%）
-        'struggling_problems': struggling_problems,  # 要練習（1-59%）
-        'untouched_problems': untouched_problems,    # 未着手（0%）
-        'attempted_problems': attempted_problems,    # 取り組み済み（0%を超える）
+        'mastered_problems': mastered_problems,      # 習得済み（3回以上かつ66%以上）
+        'learning_problems': learning_problems,      # 学習中（1-2回試行 または 3回以上で66%未満）
+        'struggling_problems': 0,                    # 廃止（互換性のため0で残す）
+        'untouched_problems': untouched_problems,    # 未着手（0回試行）
+        'attempted_problems': attempted_problems,    # 取り組み済み（1回以上試行）
         # 旧形式との互換性のため残す
         'studied_problems': attempted_problems
     }
+
+def get_quick_10_problems(data, num_questions=10):
+    """
+    改善版クイック10用問題選択（任意の問題数対応）
+    優先順位:
+    1. 未着手（0回試行）
+    2. データ不足で不正解（1-2回試行で正解率0%）
+    3. データ不足で正解済み（1-2回試行で正解率100%）
+    4. 苦手問題（3回以上で66%未満）
+    """
+    untouched = []                # 未着手
+    insufficient_incorrect = []   # データ不足で不正解
+    insufficient_correct = []     # データ不足で正解済み
+    weak = []                    # 苦手問題（3回以上で低正解率）
+    
+    for item in data:
+        try:
+            correct = int(item.get('正解数', 0) or 0)
+            attempts = int(item.get('総試行回数', 0) or 0)
+            
+            if attempts == 0:
+                untouched.append(item)
+            elif attempts <= 2:
+                if correct == 0:
+                    insufficient_incorrect.append(item)  # 不正解を分離
+                else:
+                    insufficient_correct.append(item)    # 正解済みを分離
+            else:
+                # 3回以上の場合、正解率をチェック
+                score = correct / attempts
+                if score < 0.66:  # 66%未満は苦手問題
+                    weak.append(item)
+                # 66%以上は除外（習得済み）
+        except (ValueError, TypeError):
+            # エラーの場合は未着手として扱う
+            untouched.append(item)
+    
+    # 優先順位に従って指定数選択
+    selected = []
+    
+    # 1. 未着手から選択（最優先）
+    needed = min(num_questions, len(untouched))
+    selected.extend(untouched[:needed])
+    
+    # 2. データ不足で不正解を次に優先
+    remaining = num_questions - len(selected)
+    if remaining > 0:
+        needed = min(remaining, len(insufficient_incorrect))
+        selected.extend(insufficient_incorrect[:needed])
+    
+    # 3. データ不足で正解済みを次に
+    remaining = num_questions - len(selected)
+    if remaining > 0:
+        needed = min(remaining, len(insufficient_correct))
+        selected.extend(insufficient_correct[:needed])
+    
+    # 4. 苦手問題で残りを埋める
+    remaining = num_questions - len(selected)
+    if remaining > 0:
+        needed = min(remaining, len(weak))
+        selected.extend(weak[:needed])
+    
+    # 5. まだ足りない場合は全問題からランダム補填
+    if len(selected) < num_questions:
+        all_others = [item for item in data if item not in selected]
+        remaining = num_questions - len(selected)
+        if all_others:
+            additional = random.sample(all_others, min(remaining, len(all_others)))
+            selected.extend(additional)
+    
+    # ランダムシャッフル
+    random.shuffle(selected)
+    
+    return selected[:num_questions]
+
+def get_weakness_problems(data):
+    """
+    弱点克服モード用：学習中カテゴリ（未着手 + 66%未満）の問題をすべて取得
+    優先順位:
+    1. 未着手（0回試行）
+    2. データ不足で不正解（1-2回試行で正解率0%）
+    3. データ不足で正解済み（1-2回試行で正解率100%）
+    4. 苦手問題（3回以上で66%未満）
+    """
+    untouched = []                # 未着手
+    insufficient_incorrect = []   # データ不足で不正解
+    insufficient_correct = []     # データ不足で正解済み
+    weak = []                    # 苦手問題（3回以上で低正解率）
+    
+    for item in data:
+        try:
+            correct = int(item.get('正解数', 0) or 0)
+            attempts = int(item.get('総試行回数', 0) or 0)
+            
+            if attempts == 0:
+                untouched.append(item)
+            elif attempts <= 2:
+                if correct == 0:
+                    insufficient_incorrect.append(item)  # 不正解を分離
+                else:
+                    insufficient_correct.append(item)    # 正解済みを分離
+            else:
+                # 3回以上の場合、正解率をチェック
+                score = correct / attempts
+                if score < 0.66:  # 66%未満は苦手問題
+                    weak.append(item)
+                # 66%以上は除外（習得済み）
+        except (ValueError, TypeError):
+            # エラーの場合は未着手として扱う
+            untouched.append(item)
+    
+    # 優先順位に従ってすべて選択
+    selected = []
+    selected.extend(untouched)
+    selected.extend(insufficient_incorrect)
+    selected.extend(insufficient_correct)
+    selected.extend(weak)
+    
+    # ランダムシャッフル
+    random.shuffle(selected)
+    
+    return selected
 
 def get_weak_problems(data, threshold=0.6):
     """習熟度が閾値未満の問題を抽出"""
@@ -746,52 +870,63 @@ def online_test_setup(filename):
     if not data:
         set_flash_message('データセットが見つかりません。', 'error')
         return redirect(url_for('index'))
+
+    # 統計情報を取得
+    stats = get_dataset_stats(data)
     
-    # 既存の統計データがあれば取得
-    total_items = len(data)
+    # 弱点克服モード用の詳細統計を追加取得
+    weakness_stats = {
+        'untouched_problems': 0,
+        'learning_problems': 0,
+        'total_weakness_problems': 0
+    }
     
-    # 習熟度分布を取得
-    mastery_dist = get_mastery_distribution(data)
+    for item in data:
+        attempts = int(item.get('総試行回数', 0) or 0)
+        correct = int(item.get('正解数', 0) or 0)
+        
+        if attempts == 0:
+            weakness_stats['untouched_problems'] += 1
+        elif attempts <= 2:
+            weakness_stats['learning_problems'] += 1
+        else:
+            # 3回以上の場合は習熟度で判定
+            score = correct / attempts if attempts > 0 else 0
+            if score < 0.66:  # 習熟度66%未満
+                weakness_stats['learning_problems'] += 1
     
+    # 弱点克服対象の総問題数
+    weakness_stats['total_weakness_problems'] = weakness_stats['untouched_problems'] + weakness_stats['learning_problems']
+
     return render_template('online_test_setup.html',
                          filename=filename,
                          dataset_name=filename[:-4],
-                         total_items=total_items,
-                         mastery_distribution=mastery_dist)
+                         stats=stats,
+                         weakness_stats=weakness_stats)
 
 @app.route('/quick_10/<filename>')
 def quick_10_test(filename):
-    """クイック10テスト: 習熟度が低い問題から10問をランダム選択して即開始"""
+    """
+    改善されたクイック10テスト
+    優先順位: 未着手 → データ不足(1-2回) → 苦手問題(3回以上で低正解率)
+    """
     data = load_dataset(filename)
     
     if not data:
         set_flash_message('データセットが見つかりません。', 'error')
         return redirect(url_for('index'))
     
-    # 習熟度が低い問題（60%未満）を抽出
-    weak_problems = get_weak_problems(data, threshold=0.6)
+    # 新しいロジックで問題を選択（デフォルト10問）
+    selected_problems = get_quick_10_problems(data, 10)
     
-    # 習熟度の低い問題が10問未満の場合、閾値を上げて問題を追加
-    if len(weak_problems) < 10:
-        # 80%未満まで拡張
-        weak_problems = get_weak_problems(data, threshold=0.8)
-        
-        # まだ足りない場合は全問題から選択
-        if len(weak_problems) < 10:
-            weak_problems = data
-    
-    # 最大10問を選択
-    num_questions = min(10, len(weak_problems))
-    if num_questions == 0:
+    if len(selected_problems) == 0:
         set_flash_message('出題可能な問題がありません。', 'error')
         return redirect(url_for('index'))
     
-    # ランダムに問題を選択
-    selected_problems = random.sample(weak_problems, num_questions)
-    
     # テスト設定
     settings = {
-        'quiz_type': 'question_to_answer'
+        'quiz_type': 'question_to_answer',
+        'description': f'クイック10 - {len(selected_problems)}問（未着手・不正解優先）'
     }
     
     # オンラインテストセッションを作成
@@ -809,25 +944,31 @@ def start_online_test(filename):
         return redirect(url_for('online_test_setup', filename=filename))
     
     try:
-        num_questions = int(request.form.get('num_questions', 10))
-        quiz_type = request.form.get('quiz_type', 'question_to_answer')
-        selection_method = request.form.get('selection_method', 'random')
-        problem_mode = request.form.get('problem_mode', 'normal')
-        
-        # 弱点問題特化モードの処理
-        if problem_mode == 'weak':
-            # 弱点問題のみを対象とする
-            weak_data = get_weak_problems(data, threshold=0.6)
-            if not weak_data:
-                set_flash_message('弱点問題が見つかりません。通常モードをお試しください。', 'warning')
-                return redirect(url_for('online_test_setup', filename=filename))
-            range_data = weak_data
-            # 弱点問題モードでは範囲指定は無効
-            num_questions = min(max(1, num_questions), len(range_data))
+        # 問題数の取得（テンプレートからはquestion_countとして送信される）
+        question_count = request.form.get('question_count', '10')
+        if question_count == 'all':
+            num_questions = len(data)
         else:
-            # 通常モード：範囲設定の取得
-            range_start = request.form.get('range_start')
-            range_end = request.form.get('range_end')
+            num_questions = int(question_count)
+            
+        quiz_type = request.form.get('quiz_type', 'question_to_answer')
+        mode = request.form.get('mode', 'normal')
+        
+        # モードに応じた問題選択
+        if mode == 'weakness':
+            # 弱点克服モード：クイック10と同じロジックで問題を抽出
+            selected_items = get_quick_10_problems(data, num_questions)
+            
+            if not selected_items:
+                set_flash_message('弱点克服対象の問題が見つかりません。通常モードをお試しください。', 'warning')
+                return redirect(url_for('online_test_setup', filename=filename))
+                
+            description = f'弱点克服モード - {num_questions}問（優先度順選択）'
+        else:
+            # 通常モード：従来の範囲・選択方法ロジック
+            selection_method = request.form.get('order', 'random')
+            range_start = request.form.get('start_range')
+            range_end = request.form.get('end_range')
             
             # 範囲の設定（空欄の場合はデフォルト値）
             start_index = int(range_start) - 1 if range_start else 0  # 1-based to 0-based
@@ -851,18 +992,21 @@ def start_online_test(filename):
             
             # 問題数の調整（範囲データのサイズまで）
             num_questions = min(max(1, num_questions), len(range_data))
-        
-        # 問題の選択
-        if selection_method == 'sequential':
-            # 順番選択：範囲の最初から指定数を選択
-            selected_items = range_data[:num_questions]
-        else:
-            # ランダム選択：範囲からランダムに選択
-            selected_items = random.sample(range_data, num_questions)
+            
+            # 問題の選択
+            if selection_method == 'sequential':
+                # 順番選択：範囲の最初から指定数を選択
+                selected_items = range_data[:num_questions]
+            else:
+                # ランダム選択：範囲からランダムに選択
+                selected_items = random.sample(range_data, num_questions)
+            
+            description = f'通常モード - {num_questions}問'
         
         # テスト設定
         settings = {
-            'quiz_type': quiz_type
+            'quiz_type': quiz_type,
+            'description': description
         }
         
         # オンラインテストセッションを作成
