@@ -529,10 +529,11 @@ def load_dataset(filename):
     filepath = os.path.join(DATASETS_DIR, filename)
     data = []
     if os.path.exists(filepath):
-        # エンコーディングを試行する順序
-        encodings = ['shift_jis', 'utf-8', 'cp932']
-        
+        # エンコーディングを試行する順序（utf-8-sigはBOM付きUTF-8のBOMを除去して読む）
+        encodings = ['shift_jis', 'utf-8-sig', 'utf-8', 'cp932']
+
         for encoding in encodings:
+            data = []  # 前のエンコーディングで途中まで読めた行が残らないようリセット
             try:
                 with open(filepath, 'r', encoding=encoding) as f:
                     # ファイルの最初の行を読んでCSVかTSVかを判定
@@ -622,25 +623,31 @@ def save_dataset(filename, data, fieldnames=None):
             enhanced_item['習熟度スコア'] = 0.0
         enhanced_data.append(enhanced_item)
     
+    # 一時ファイルに書き込んでから置き換える（書き込みが途中で失敗しても元ファイルは無傷）
+    temp_path = filepath + '.tmp'
     try:
         # Shift_JISでの保存を試行（エラー時はUTF-8で保存）
         try:
-            with open(filepath, 'w', encoding='shift_jis', newline='') as f:
-                writer = csv.DictWriter(f, fieldnames=fieldnames)
+            encoding_used = 'shift_jis'
+            with open(temp_path, 'w', encoding='shift_jis', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction='ignore')
                 writer.writeheader()
                 writer.writerows(enhanced_data)
-            print(f"Dataset saved successfully with shift_jis encoding: {filename}")
         except UnicodeEncodeError as encode_error:
             print(f"Shift_JIS encoding failed for {filename}: {encode_error}")
             print("Saving with UTF-8 encoding instead...")
-            with open(filepath, 'w', encoding='utf-8', newline='') as f:
-                writer = csv.DictWriter(f, fieldnames=fieldnames)
+            encoding_used = 'utf-8'
+            with open(temp_path, 'w', encoding='utf-8', newline='') as f:
+                writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction='ignore')
                 writer.writeheader()
                 writer.writerows(enhanced_data)
-            print(f"Dataset saved successfully with UTF-8 encoding: {filename}")
+        os.replace(temp_path, filepath)
+        print(f"Dataset saved successfully with {encoding_used} encoding: {filename}")
         return True
     except Exception as e:
         print(f"Error saving dataset {filename}: {e}")
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
         return False
 
 @app.route('/')
