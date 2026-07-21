@@ -58,28 +58,22 @@
     </style>
 </head>
 <body>
+    {# 管理画面のページではナビのホームを /mng に向ける #}
+    {% set admin_endpoints = ['index', 'create_dataset', 'save_dataset_route', 'edit_dataset', 'input_results', 'save_results', 'generate_quiz', 'create_quiz', 'import_dataset_page', 'upload_dataset'] %}
+    {% set is_admin_page = request.endpoint in admin_endpoints %}
+    {% set nav_home_url = url_for('index') if is_admin_page else url_for('home') %}
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
         <div class="container">
-            <a class="navbar-brand" href="{{ url_for('index') }}">
-                <i class="fas fa-graduation-cap"></i> StudyCards
+            <a class="navbar-brand" href="{{ nav_home_url }}">
+                <i class="fas fa-graduation-cap"></i> StudyCards{% if is_admin_page %} <span class="badge bg-warning text-dark">管理</span>{% endif %}
             </a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
                 <span class="navbar-toggler-icon"></span>
             </button>
             <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="fas fa-database"></i> データセット一覧
-                        </a>
-                        <ul class="dropdown-menu" aria-labelledby="navbarDropdown" id="dataset-dropdown">
-                            <li><a class="dropdown-item text-muted"><i class="fas fa-spinner fa-spin"></i> 読み込み中...</a></li>
-                        </ul>
-                    </li>
-                </ul>
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('index') }}">
+                        <a class="nav-link" href="{{ nav_home_url }}">
                             <i class="fas fa-home"></i> ホーム
                         </a>
                     </li>
@@ -105,35 +99,6 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script>
-        // データセット一覧をナビゲーションメニューに動的読み込み
-        document.addEventListener('DOMContentLoaded', function() {
-            const dropdown = document.getElementById('dataset-dropdown');
-            if (dropdown) {
-                fetch('/api/datasets')
-                    .then(response => response.json())
-                    .then(datasets => {
-                        dropdown.innerHTML = '';
-                        if (datasets.length === 0) {
-                            dropdown.innerHTML = '<li><a class="dropdown-item text-muted"><i class="fas fa-info-circle"></i> データセットがありません</a></li>';
-                        } else {
-                            datasets.forEach(dataset => {
-                                const item = document.createElement('li');
-                                item.innerHTML = `<a class="dropdown-item" href="/edit_dataset/${dataset.filename}">
-                                    <i class="fas fa-database me-2"></i>${dataset.name}
-                                    <small class="text-muted ms-2">(${dataset.stats.total_problems}問)</small>
-                                </a>`;
-                                dropdown.appendChild(item);
-                            });
-                        }
-                    })
-                    .catch(error => {
-                        console.error('データセット一覧の取得に失敗しました:', error);
-                        dropdown.innerHTML = '<li><a class="dropdown-item text-danger"><i class="fas fa-exclamation-triangle"></i> 読み込みエラー</a></li>';
-                    });
-            }
-        });
-    </script>
     {% block scripts %}{% endblock %}
 </body>
 </html>

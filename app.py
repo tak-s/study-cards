@@ -651,8 +651,15 @@ def save_dataset(filename, data, fieldnames=None):
         return False
 
 @app.route('/')
+def home():
+    """テスト実施者向けホーム（クイック10・オンラインテスト・習熟度表示のみ）"""
+    datasets = get_datasets()
+    message, message_type = get_message_and_type(request)
+    return render_template('home.html', datasets=datasets, message=message, message_type=message_type)
+
+@app.route('/mng')
 def index():
-    """メインダッシュボードページ"""
+    """管理者向けダッシュボードページ"""
     datasets = get_datasets()
     message, message_type = get_message_and_type(request)
     return render_template('index.html', datasets=datasets, message=message, message_type=message_type)
@@ -876,7 +883,7 @@ def online_test_setup(filename):
     
     if not data:
         set_flash_message('データセットが見つかりません。', 'error')
-        return redirect(url_for('index'))
+        return redirect(url_for('home'))
 
     # 統計情報を取得
     stats = get_dataset_stats(data)
@@ -921,14 +928,14 @@ def quick_10_test(filename):
     
     if not data:
         set_flash_message('データセットが見つかりません。', 'error')
-        return redirect(url_for('index'))
-    
+        return redirect(url_for('home'))
+
     # 新しいロジックで問題を選択（デフォルト10問）
     selected_problems = get_quick_10_problems(data, 10)
-    
+
     if len(selected_problems) == 0:
         set_flash_message('出題可能な問題がありません。', 'error')
-        return redirect(url_for('index'))
+        return redirect(url_for('home'))
     
     # テスト設定
     settings = {
@@ -1035,8 +1042,8 @@ def online_test_session(session_id):
     
     if not test_session:
         set_flash_message('テストセッションが見つかりません。', 'error')
-        return redirect(url_for('index'))
-    
+        return redirect(url_for('home'))
+
     return render_template('online_test.html',
                          session_id=session_id,
                          test_session=test_session)
@@ -1186,8 +1193,8 @@ def test_results(session_id):
     
     if not test_session:
         set_flash_message('テストセッションが見つかりません。', 'error')
-        return redirect(url_for('index'))
-    
+        return redirect(url_for('home'))
+
     # 結果を計算
     score = test_session['results']['score']
     total = test_session['results']['total_questions']

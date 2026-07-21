@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block title %}ホーム - StudyCards{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h1><i class="fas fa-pen"></i> テストを受ける</h1>
+        <p class="text-muted mb-4">データセットを選んでテストを開始しましょう。</p>
+    </div>
+</div>
+
+{% if datasets %}
+<div class="row">
+    {% for dataset in datasets %}
+    <div class="col-md-6 col-xl-4 mb-4">
+        <div class="card dataset-card h-100 shadow-sm">
+            <div class="card-header bg-primary text-white">
+                <h5 class="card-title mb-0">
+                    <i class="fas fa-database me-2"></i>{{ dataset.name }}
+                </h5>
+            </div>
+            <div class="card-body">
+                <!-- 統計情報 -->
+                <div class="row text-center mb-3">
+                    <div class="col-6">
+                        <div class="border-end">
+                            <h4 class="text-primary mb-0">{{ dataset.stats.total_problems }}</h4>
+                            <small class="text-muted">問題数</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <h4 class="mb-0 {% if dataset.stats.average_mastery >= 80 %}text-success{% elif dataset.stats.average_mastery >= 60 %}text-warning{% else %}text-danger{% endif %}">
+                            {{ dataset.stats.average_mastery }}%
+                        </h4>
+                        <small class="text-muted">習熟度</small>
+                    </div>
+                </div>
+
+                <!-- 習熟度プログレスバー -->
+                <div class="mb-3">
+                    <div class="progress" style="height: 8px;">
+                        <div class="progress-bar
+                            {% if dataset.stats.average_mastery >= 80 %}bg-success
+                            {% elif dataset.stats.average_mastery >= 60 %}bg-warning
+                            {% else %}bg-danger{% endif %}"
+                            role="progressbar"
+                            data-width="{{ dataset.stats.average_mastery }}"
+                            aria-valuenow="{{ dataset.stats.average_mastery }}"
+                            aria-valuemin="0"
+                            aria-valuemax="100">
+                        </div>
+                    </div>
+                    <small class="text-muted">
+                        {% if dataset.stats.total_attempts > 0 %}
+                            習得済み: {{ dataset.stats.mastered_problems }}問、
+                            学習中: {{ dataset.stats.learning_problems }}問、
+                            未着手: {{ dataset.stats.untouched_problems }}問
+                        {% else %}
+                            未学習
+                        {% endif %}
+                    </small>
+                </div>
+
+                <!-- アクションボタン -->
+                <div class="d-grid gap-2">
+                    {% if dataset.stats.total_problems >= 1 %}
+                    <a href="{{ url_for('quick_10_test', filename=dataset.filename) }}"
+                       class="btn btn-warning">
+                        <i class="fas fa-bolt me-2"></i>クイック10
+                        <small class="d-block" style="font-size: 0.75em; opacity: 0.8;">習熟度の低い問題から10問</small>
+                    </a>
+                    {% endif %}
+                    <a href="{{ url_for('online_test_setup', filename=dataset.filename) }}"
+                       class="btn btn-info">
+                        <i class="fas fa-laptop me-2"></i>オンラインテスト
+                        <small class="d-block" style="font-size: 0.75em; opacity: 0.8;">お好みの設定でテストを実施</small>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+{% else %}
+<div class="row">
+    <div class="col-12">
+        <div class="card text-center">
+            <div class="card-body py-5">
+                <i class="fas fa-database fa-3x text-muted mb-3"></i>
+                <h4 class="text-muted">データセットがありません</h4>
+                <p class="text-muted mb-0">管理者にデータセットの登録を依頼してください。</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // プログレスバーの幅を設定
+    const progressBars = document.querySelectorAll('.progress-bar[data-width]');
+    progressBars.forEach(function(bar) {
+        const width = bar.getAttribute('data-width');
+        bar.style.width = width + '%';
+    });
+
+    // カードのホバーエフェクト強化
+    const cards = document.querySelectorAll('.dataset-card');
+    cards.forEach(card => {
+        card.addEventListener('mouseenter', function() {
+            this.style.transform = 'translateY(-5px)';
+            this.style.boxShadow = '0 8px 16px rgba(0,0,0,0.15)';
+        });
+
+        card.addEventListener('mouseleave', function() {
+            this.style.transform = 'translateY(0)';
+            this.style.boxShadow = '';
+        });
+    });
+});
+</script>
+{% endblock %}
